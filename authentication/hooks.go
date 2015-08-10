@@ -19,7 +19,7 @@ func eventParse(w http.ResponseWriter, r *http.Request, next http.Handler) {
 	configs := new(Configs)
 	configs.ReadConfigurationFormfile()
 
-	if strings.HasPrefix(r.RequestURI, "/containers") && !(strings.Contains(r.RequestURI, "attach") || strings.Contains(r.RequestURI, "exec")) {
+	if strings.HasPrefix(r.RequestURI, "/containers") && (strings.Contains(r.RequestURI, "create")) {
 		defer r.Body.Close()
 		reqBody, _ := ioutil.ReadAll(r.Body)
 		log.Debug("Old body: ")
@@ -30,6 +30,10 @@ func eventParse(w http.ResponseWriter, r *http.Request, next http.Handler) {
 		log.Debug(string(newBody))
 		newReq := cloneAndModifyRequest(r, bytes.NewReader(newBody))
 		next.ServeHTTP(w, newReq)
+	} else if r.RequestURI == "/containers/json" {
+
+	} else if strings.HasPrefix(r.RequestURI, "/containers") && !(strings.Contains(r.RequestURI, "attach") || strings.Contains(r.RequestURI, "exec")) {
+
 	}
 
 }
