@@ -5,6 +5,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"strings"
 
 	log "github.com/Sirupsen/logrus"
 )
@@ -18,12 +19,7 @@ func eventParse(w http.ResponseWriter, r *http.Request, next http.Handler) {
 	configs := new(Configs)
 	configs.ReadConfigurationFormfile()
 
-	strUri := r.RequestURI
-	log.Debug("---------------")
-	log.Debug(strUri)
-	log.Debug("---------------")
-	switch strUri {
-	case "/containers/create":
+	if strings.HasPrefix(r.RequestURI, "/containers") && !(strings.Contains(r.RequestURI, "attach") || strings.Contains(r.RequestURI, "exec")) {
 		defer r.Body.Close()
 		reqBody, _ := ioutil.ReadAll(r.Body)
 		log.Debug("Old body: ")
@@ -33,13 +29,9 @@ func eventParse(w http.ResponseWriter, r *http.Request, next http.Handler) {
 		log.Debug("New body: ")
 		log.Debug(string(newBody))
 		newReq := cloneAndModifyRequest(r, bytes.NewReader(newBody))
-		//		newReq, e1 := http.NewRequest("POST", r.URL.String(), bytes.NewReader(newBody))
-		//		if e1!=nil{
-		//			log.Error(e1)
-		//		}
 		next.ServeHTTP(w, newReq)
-		//	case "/containers/*/start":
 	}
+
 }
 
 func cloneAndModifyRequest(r *http.Request, body io.Reader) *http.Request {
