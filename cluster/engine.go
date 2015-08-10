@@ -185,7 +185,7 @@ func (e *Engine) RemoveImage(image *Image, name string) ([]*dockerclient.ImageDe
 
 // RefreshImages refreshes the list of images on the engine.
 func (e *Engine) RefreshImages() error {
-	images, err := e.client.ListImages()
+	images, err := e.client.ListImages(true)
 	if err != nil {
 		return err
 	}

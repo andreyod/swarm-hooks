@@ -2,6 +2,7 @@ package authentication
 
 import (
 	"bytes"
+	"io"
 	"io/ioutil"
 	"net/http"
 
@@ -16,7 +17,12 @@ func eventParse(w http.ResponseWriter, r *http.Request, next http.Handler) {
 	log.Debug(r.RequestURI)
 	configs := new(Configs)
 	configs.ReadConfigurationFormfile()
-	switch r.RequestURI {
+
+	strUri := r.RequestURI
+	log.Debug("---------------")
+	log.Debug(strUri)
+	log.Debug("---------------")
+	switch strUri {
 	case "/containers/create":
 		defer r.Body.Close()
 		reqBody, _ := ioutil.ReadAll(r.Body)
@@ -26,22 +32,45 @@ func eventParse(w http.ResponseWriter, r *http.Request, next http.Handler) {
 		newBody := bytes.Replace(reqBody, []byte("{"), []byte("{\"Labels\": {\""+tenancyLabel+"\":\""+r.Header.Get("Label")+"\",\"anotherTenantName\": \"PUTMEHERE\"},"), 1)
 		log.Debug("New body: ")
 		log.Debug(string(newBody))
-		newReq, e1 := http.NewRequest("POST", r.URL.String(), bytes.NewReader(newBody))
-		if e1!=nil{
-			log.Error(e1)
-		}
+		newReq := cloneAndModifyRequest(r, bytes.NewReader(newBody))
+		//		newReq, e1 := http.NewRequest("POST", r.URL.String(), bytes.NewReader(newBody))
+		//		if e1!=nil{
+		//			log.Error(e1)
+		//		}
 		next.ServeHTTP(w, newReq)
+		//	case "/containers/*/start":
 	}
+}
+
+func cloneAndModifyRequest(r *http.Request, body io.Reader) *http.Request {
+	// shallow copy of the struct
+	r2 := new(http.Request)
+	*r2 = *r
+	// deep copy of the Header
+	r2.Header = make(http.Header, len(r.Header))
+	for k, s := range r.Header {
+		r2.Header[k] = append([]string(nil), s...)
+	}
+	//Put the modified body
+
+	rc, ok := body.(io.ReadCloser)
+	if !ok && body != nil {
+		rc = ioutil.NopCloser(body)
+	}
+	r2.Body = rc
+
+	return r2
 }
 
 func (*Hooks) PrePostAuthWrapper(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		log.Info("Executing Pre...")
 		if validatetoken(w, r) {
+			log.Info("OK token is fine")
 			eventParse(w, r, next)
+		} else {
+			w.Write([]byte("Not Authorized!!!!"))
 		}
-		w.Write([]byte("Not Authorized"))
-
 		log.Info("Executing Post...")
 	})
 }
@@ -50,7 +79,7 @@ func validatetoken(w http.ResponseWriter, r *http.Request) bool {
 	tokenToValidate := r.Header.Get("User-token")
 	isValid, label := provisionAPI.ValidateToken(tokenToValidate)
 	if !isValid {
-		log.Println("Not authenticated. Check user toekn.")
+		log.Info("Not authenticated. Check user toekn.")
 		return false
 	}
 	//TODO - For now tenant id - Later some hash which works with more complex ACL
