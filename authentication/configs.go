@@ -2,13 +2,14 @@ package authentication
 
 import (
 	"encoding/json"
-	
-	"log"
+
 	"os"
+
+	log "github.com/Sirupsen/logrus"
 )
 
 type Configs struct {
-	AuthTokenHeader string
+	AuthTokenHeader    string
 	TenancyLabel       string
 	KeystoneUrl        string
 	KeyStoneXAuthToken string
@@ -26,9 +27,9 @@ func (*Configs) ReadConfigurationFormfile() {
 	if err != nil {
 		log.Println("error:", err)
 	}
-	log.Println("*************************")
-	log.Println(Configuration)
-	log.Println("*************************")
+	log.Debug("*************************")
+	log.Debug(Configuration)
+	log.Debug("*************************")
 }
 
 func (*Configs) GetConf() *Configs {
@@ -37,7 +38,7 @@ func (*Configs) GetConf() *Configs {
 
 func (*Configs) CreateDefaultsConfigurationfile() {
 	confs := Configs{
-		AuthTokenHeader: "X-Auth-Token",
+		AuthTokenHeader:    "X-Auth-Token",
 		TenancyLabel:       "com.ibm.tenant.0",
 		KeystoneUrl:        "http://127.0.0.1:5000/v2.0/",
 		KeyStoneXAuthToken: "ADMIN",
