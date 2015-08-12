@@ -22,7 +22,7 @@ echo $UserToken
 #echo "Listing containers..."
 #curl -H "X-Auth-Token: $UserToken"  http://127.0.0.1:2379/containers/json?all=1 | jq '.'
 echo "Checking Patch"
-curl -H "X-Auth-Token: $UserToken" http://127.0.0.1:2379/v1.18/containers/json?all=1 | jq '.'
+curl -H "X-Auth-Token: $UserToken" http://127.0.0.1:2379/containers/json?all=1 | jq '.'
 
 
 
