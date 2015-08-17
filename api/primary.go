@@ -7,7 +7,6 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/docker/swarm/cluster"
 	"github.com/gorilla/mux"
-	"github.com/docker/swarm/authentication"
 )
 
 // Primary router context, used by handlers.
@@ -84,8 +83,6 @@ func writeCorsHeaders(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Access-Control-Allow-Methods", "GET, POST, DELETE, PUT, OPTIONS")
 }
 
-
-
 // NewPrimary creates a new API router.
 func NewPrimary(cluster cluster.Cluster, tlsConfig *tls.Config, status StatusHandler, enableCors bool) *mux.Router {
 	// Register the API events handler in the cluster.
@@ -114,10 +111,9 @@ func NewPrimary(cluster cluster.Cluster, tlsConfig *tls.Config, status StatusHan
 				localFct(context, w, r)
 			}
 			localMethod := method
-			hooks := new(authentication.Hooks)
-			hooks.Init()
-			r.Path("/v{version:[0-9.]+}" + localRoute).Methods(localMethod).Handler(hooks.PrePostAuthWrapper(http.HandlerFunc(wrap)))
-			r.Path(localRoute).Methods(localMethod).Handler(hooks.PrePostAuthWrapper(http.HandlerFunc(wrap)))
+
+			r.Path("/v{version:[0-9.]+}" + localRoute).Methods(localMethod).HandlerFunc(wrap)
+			r.Path(localRoute).Methods(localMethod).HandlerFunc(wrap)
 		}
 	}
 
