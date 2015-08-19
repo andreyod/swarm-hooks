@@ -26,12 +26,15 @@ type EVENT_ENUM int
 const (
 	NOT_SUPPORTED EVENT_ENUM = iota
 	CONTAINER_CREATE
-	CONTAINER_LIST
+	CONTAINERS_DETAIL
 	CONTAINER_OTHERS
 )
 
 func eventParse(w http.ResponseWriter, r *http.Request, next http.Handler) EVENT_ENUM {
 
+	log.Debug("Got the uri...")
+	log.Debug(r.RequestURI)
+	log.Debug("---------------------------")
 	if strings.HasPrefix(r.RequestURI, "/containers") && (strings.Contains(r.RequestURI, "attach") || strings.Contains(r.RequestURI, "exec")) {
 		w.Write([]byte("Not supported!"))
 		return NOT_SUPPORTED
@@ -66,7 +69,7 @@ func eventParse(w http.ResponseWriter, r *http.Request, next http.Handler) EVENT
 			log.Error(e1)
 		}
 		next.ServeHTTP(w, newReq)
-		return CONTAINER_LIST
+		return CONTAINERS_DETAIL
 	} else if strings.HasPrefix(r.RequestURI, "/containers") {
 		//TODO - Forgot to handle authorization
 		name := mux.Vars(r)["name"]
@@ -103,6 +106,10 @@ func eventParse(w http.ResponseWriter, r *http.Request, next http.Handler) EVENT
 			}
 		}
 
+		if strings.HasSuffix(r.RequestURI, "/json") {
+			return CONTAINERS_DETAIL
+		}
+
 		return CONTAINER_OTHERS
 	} else {
 		w.Write([]byte("\n Not supported! \n"))
@@ -135,10 +142,20 @@ func cloneAndModifyRequest(r *http.Request, body io.Reader, urlStr string) (*htt
 	return r2, nil
 }
 
+func isAdmin(w http.ResponseWriter, r *http.Request) bool {
+	//TODO - This should be talking to a Keystone or vault etc this patch is just for testing
+	tokenToValidate := r.Header.Get(configs.GetConf().AuthTokenHeader)
+	return tokenToValidate == "admin"
+}
+
 func (*Hooks) PrePostAuthWrapper(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		log.Info("Executing Pre...")
 
+		if isAdmin(w, r) {
+			next.ServeHTTP(w, r)
+			return
+		}
 		var eventType EVENT_ENUM
 		rec := httptest.NewRecorder()
 		if validatetoken(w, r) {
@@ -147,6 +164,7 @@ func (*Hooks) PrePostAuthWrapper(next http.Handler) http.Handler {
 			//			eventParse(w, r, next)
 		} else {
 			w.Write([]byte("Not Authorized!"))
+			return
 		}
 		log.Info("Executing Post...")
 
@@ -154,7 +172,7 @@ func (*Hooks) PrePostAuthWrapper(next http.Handler) http.Handler {
 		for k, v := range rec.Header() {
 			w.Header()[k] = v
 		}
-		if eventType == CONTAINER_LIST {
+		if eventType == CONTAINERS_DETAIL {
 
 			log.Debug("++++++++++++++++++++++++++++++++")
 			log.Debug(configs.GetConf().TenancyLabel)

@@ -5,7 +5,7 @@ echo "Getting user token..."
 UserToken=Space1
 echo $UserToken
 sleep 1
-echo "Asking Info with valid token"
+echo "Asking Info with valid token..."
 curl -H "X-Auth-Token: $UserToken"  http://127.0.0.1:2379/info
 sleep 1
 echo "Creating a container..."
@@ -31,17 +31,30 @@ echo "Listing containers with the other user token..."
 curl -H "X-Auth-Token: $UserToken2"  http://127.0.0.1:2379/containers/json?all=1 | jq '.'
 sleep 1
 
-echo "Stopping the container..."
-curl -X POST -H "X-Auth-Token:$UserToken" http://127.0.0.1:2379/containers/$ContainerId/stop
+echo "Listing containers with the admin user token..."
+curl -H "X-Auth-Token: admin"  http://127.0.0.1:2379/containers/json?all=1 | jq '.'
 sleep 1
 
-echo "Trying to Delete the container with the other user token"
+echo "Inspecting the container..."
+curl -H "X-Auth-Token:$UserToken" http://127.0.0.1:2379/containers/$ContainerId/json | jq '.'
+sleep 1
+
+echo "Stopping the container..."
+curl -X POST -H "X-Auth-Token:$UserToken" http://127.0.0.1:2379/containers/$ContainerId/stop | jq '.'
+sleep 1
+
+echo "Inspecting the container again..."
+curl -H "X-Auth-Token:$UserToken" http://127.0.0.1:2379/containers/$ContainerId/json | jq '.'
+sleep 1
+
+echo "Trying to Delete the container with the other user token..."
 curl -X DELETE -H "X-Auth-Token:$UserToken2" http://127.0.0.1:2379/containers/$ContainerId
 sleep 1
 
 echo "Deleting the container..."
 curl -X DELETE -H "X-Auth-Token:$UserToken" http://127.0.0.1:2379/containers/$ContainerId
 sleep 1
+
 echo "Listing containers..."
 curl -H "X-Auth-Token: $UserToken"  http://127.0.0.1:2379/containers/json?all=1 | jq '.'
 echo "Count all containers..."
