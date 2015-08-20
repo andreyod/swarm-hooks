@@ -48,7 +48,7 @@ curl -H "X-Auth-Token:$UserToken" http://127.0.0.1:2379/containers/$ContainerId/
 sleep 1
 
 echo "Trying to Delete the container with the other user token..."
-curl -X DELETE -H "X-Auth-Token:$UserToken2" http://127.0.0.1:2379/containers/$ContainerId
+curl -v -X DELETE -H "X-Auth-Token:$UserToken2" http://127.0.0.1:2379/containers/$ContainerId
 sleep 1
 
 echo "Deleting the container..."

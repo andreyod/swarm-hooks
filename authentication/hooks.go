@@ -28,6 +28,7 @@ const (
 	CONTAINER_CREATE
 	CONTAINERS_DETAIL
 	CONTAINER_OTHERS
+	UNAUTHORIZED
 )
 
 func eventParse(w http.ResponseWriter, r *http.Request, next http.Handler) EVENT_ENUM {
@@ -101,7 +102,10 @@ func eventParse(w http.ResponseWriter, r *http.Request, next http.Handler) EVENT
 				if bytes.Contains(contents, b) {
 					next.ServeHTTP(w, r)
 				} else {
+
 					w.Write([]byte("\n You are not the owner of that container! \n"))
+					return UNAUTHORIZED
+
 				}
 			}
 		}
@@ -167,6 +171,10 @@ func (*Hooks) PrePostAuthWrapper(next http.Handler) http.Handler {
 			return
 		}
 		log.Info("Executing Post...")
+
+		if eventType == UNAUTHORIZED {
+			w.WriteHeader(http.StatusUnauthorized)
+		}
 
 		// we copy the original headers first
 		for k, v := range rec.Header() {
