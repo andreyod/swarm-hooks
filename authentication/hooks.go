@@ -36,10 +36,10 @@ func eventParse(w http.ResponseWriter, r *http.Request, next http.Handler) EVENT
 	log.Debug("Got the uri...")
 	log.Debug(r.RequestURI)
 	log.Debug("---------------------------")
-	if strings.HasPrefix(r.RequestURI, "/containers") && (strings.Contains(r.RequestURI, "attach") || strings.Contains(r.RequestURI, "exec")) {
+	if strings.Contains(r.RequestURI, "/containers") && (strings.Contains(r.RequestURI, "attach") || strings.Contains(r.RequestURI, "exec")) {
 		w.Write([]byte("Not supported!"))
 		return NOT_SUPPORTED
-	} else if strings.HasPrefix(r.RequestURI, "/containers") && (strings.Contains(r.RequestURI, "create")) {
+	} else if strings.Contains(r.RequestURI, "/containers") && (strings.Contains(r.RequestURI, "create")) {
 		defer r.Body.Close()
 		reqBody, _ := ioutil.ReadAll(r.Body)
 		log.Debug("Old body: " + string(reqBody))
@@ -51,7 +51,7 @@ func eventParse(w http.ResponseWriter, r *http.Request, next http.Handler) EVENT
 		}
 		next.ServeHTTP(w, newReq)
 		return CONTAINER_CREATE
-	} else if strings.HasPrefix(r.RequestURI, "/containers/json") {
+	} else if strings.Contains(r.RequestURI, "/containers/json") {
 		var v = url.Values{}
 		mapS := map[string][]string{"label": []string{configs.GetConf().TenancyLabel + "=" + r.Header.Get("Label")}}
 		filterJSON, _ := json.Marshal(mapS)
@@ -71,8 +71,7 @@ func eventParse(w http.ResponseWriter, r *http.Request, next http.Handler) EVENT
 		}
 		next.ServeHTTP(w, newReq)
 		return CONTAINERS_DETAIL
-	} else if strings.HasPrefix(r.RequestURI, "/containers") {
-		//TODO - Forgot to handle authorization
+	} else if strings.Contains(r.RequestURI, "/containers") {
 		name := mux.Vars(r)["name"]
 		log.Debug("Got this as name/Id...")
 		log.Debug(name)
@@ -176,10 +175,17 @@ func (*Hooks) PrePostAuthWrapper(next http.Handler) http.Handler {
 			w.WriteHeader(http.StatusUnauthorized)
 		}
 
+		if eventType == CONTAINER_CREATE && bytes.Contains(rec.Body.Bytes(), []byte("Conflict")) {
+			w.WriteHeader(http.StatusConflict)
+		}
+
+		//TODO - confsider parse body and look for status=!20X and put that...
+
 		// we copy the original headers first
 		for k, v := range rec.Header() {
 			w.Header()[k] = v
 		}
+
 		if eventType == CONTAINERS_DETAIL {
 
 			log.Debug("++++++++++++++++++++++++++++++++")

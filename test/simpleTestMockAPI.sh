@@ -1,4 +1,4 @@
-echo "Count all containers..."
+echo "Count all containers + 1 ..."
 docker -H 127.0.0.1:2375 ps -a | wc -l
 #Get user token
 echo "Getting user token..."
@@ -9,11 +9,12 @@ echo "Asking Info with valid token..."
 curl -H "X-Auth-Token: $UserToken"  http://127.0.0.1:2379/info
 sleep 1
 echo "Creating a container..."
+#curl -v --data-binary @redis1.json -H "X-Auth-Token:$UserToken" -H "Content-type: application/json" http://127.0.0.1:2379/containers/create?name=Doron
 ContainerId=$(curl --data-binary @redis1.json -H "X-Auth-Token:$UserToken" -H "Content-type: application/json" http://127.0.0.1:2379/containers/create | jq -r '.Id')
 echo $ContainerId
 sleep 1
 echo "Starting the container..."
-curl -X POST -H "X-Auth-Token:$UserToken" http://127.0.0.1:2379/containers/$ContainerId/start
+curl -v -X POST -H "X-Auth-Token:$UserToken" http://127.0.0.1:2379/v1.18/containers/$ContainerId/start
 sleep 1
 echo "Listing containers..."
 curl -H "X-Auth-Token: $UserToken"  http://127.0.0.1:2379/containers/json?all=1 | jq '.'
@@ -37,7 +38,11 @@ sleep 1
 
 echo "Inspecting the container..."
 curl -H "X-Auth-Token:$UserToken" http://127.0.0.1:2379/containers/$ContainerId/json | jq '.'
-sleep 1
+sleep 2
+
+echo "Getting the container logs..."
+curl -H "X-Auth-Token:$UserToken" "http://127.0.0.1:2379/containers/$ContainerId/logs?stderr=1&stdout=1&timestamps=1&follow=0&tail=10"
+sleep 2
 
 echo "Stopping the container..."
 curl -X POST -H "X-Auth-Token:$UserToken" http://127.0.0.1:2379/containers/$ContainerId/stop | jq '.'
@@ -57,6 +62,6 @@ sleep 1
 
 echo "Listing containers..."
 curl -H "X-Auth-Token: $UserToken"  http://127.0.0.1:2379/containers/json?all=1 | jq '.'
-echo "Count all containers..."
+echo "Count all containers + 1 ..."
 docker -H 127.0.0.1:2375 ps -a | wc -l
 
