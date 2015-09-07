@@ -29,9 +29,10 @@ const (
 	CONTAINERS_DETAIL
 	CONTAINER_OTHERS
 	UNAUTHORIZED
+	LOGS
 )
 
-func eventParse(w http.ResponseWriter, r *http.Request, next http.Handler) EVENT_ENUM {
+func eventParse(originalW http.ResponseWriter, w http.ResponseWriter, r *http.Request, next http.Handler) EVENT_ENUM {
 
 	log.Debug("Got the uri...")
 	log.Debug(r.RequestURI)
@@ -99,7 +100,13 @@ func eventParse(w http.ResponseWriter, r *http.Request, next http.Handler) EVENT
 				log.Debug("OwnerShip body....")
 				b := []byte(name)
 				if bytes.Contains(contents, b) {
-					next.ServeHTTP(w, r)
+					if strings.Contains(r.RequestURI, "logs") {
+						next.ServeHTTP(originalW, r)
+						return LOGS
+					} else {
+						next.ServeHTTP(w, r)
+					}
+
 				} else {
 
 					w.Write([]byte("\n You are not the owner of that container! \n"))
@@ -163,9 +170,10 @@ func (*Hooks) PrePostAuthWrapper(next http.Handler) http.Handler {
 		rec := httptest.NewRecorder()
 		if validatetoken(w, r) {
 			log.Info("OK token is fine")
-			eventType = eventParse(rec, r, next)
+			eventType = eventParse(w, rec, r, next)
 			//			eventParse(w, r, next)
 		} else {
+			w.WriteHeader(http.StatusUnauthorized)
 			w.Write([]byte("Not Authorized!"))
 			return
 		}
@@ -181,6 +189,8 @@ func (*Hooks) PrePostAuthWrapper(next http.Handler) http.Handler {
 
 		//TODO - confsider parse body and look for status=!20X and put that...
 
+
+		w.WriteHeader(rec.Code)
 		// we copy the original headers first
 		for k, v := range rec.Header() {
 			w.Header()[k] = v
