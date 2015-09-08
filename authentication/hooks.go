@@ -29,7 +29,7 @@ const (
 	CONTAINERS_DETAIL
 	CONTAINER_OTHERS
 	UNAUTHORIZED
-	LOGS
+	STREAM_OR_HIJACK
 )
 
 func eventParse(originalW http.ResponseWriter, w http.ResponseWriter, r *http.Request, next http.Handler) EVENT_ENUM {
@@ -37,10 +37,11 @@ func eventParse(originalW http.ResponseWriter, w http.ResponseWriter, r *http.Re
 	log.Debug("Got the uri...")
 	log.Debug(r.RequestURI)
 	log.Debug("---------------------------")
-	if strings.Contains(r.RequestURI, "/containers") && (strings.Contains(r.RequestURI, "attach") || strings.Contains(r.RequestURI, "exec")) {
-		w.Write([]byte("Not supported!"))
-		return NOT_SUPPORTED
-	} else if strings.Contains(r.RequestURI, "/containers") && (strings.Contains(r.RequestURI, "create")) {
+	//	if strings.Contains(r.RequestURI, "/containers") && (strings.Contains(r.RequestURI, "attach") || strings.Contains(r.RequestURI, "exec")) {
+	//		w.Write([]byte("Not supported!"))
+	//		return NOT_SUPPORTED
+	//	} else
+	if strings.Contains(r.RequestURI, "/containers") && (strings.Contains(r.RequestURI, "create")) {
 		defer r.Body.Close()
 		reqBody, _ := ioutil.ReadAll(r.Body)
 		log.Debug("Old body: " + string(reqBody))
@@ -72,7 +73,7 @@ func eventParse(originalW http.ResponseWriter, w http.ResponseWriter, r *http.Re
 		}
 		next.ServeHTTP(w, newReq)
 		return CONTAINERS_DETAIL
-	} else if strings.Contains(r.RequestURI, "/containers") {
+	} else if strings.Contains(r.RequestURI, "/containers") || strings.Contains(r.RequestURI, "exec") {
 		name := mux.Vars(r)["name"]
 		log.Debug("Got this as name/Id...")
 		log.Debug(name)
@@ -100,9 +101,9 @@ func eventParse(originalW http.ResponseWriter, w http.ResponseWriter, r *http.Re
 				log.Debug("OwnerShip body....")
 				b := []byte(name)
 				if bytes.Contains(contents, b) {
-					if strings.Contains(r.RequestURI, "logs") {
+					if strings.Contains(r.RequestURI, "logs") || strings.Contains(r.RequestURI, "attach") || strings.Contains(r.RequestURI, "exec") {
 						next.ServeHTTP(originalW, r)
-						return LOGS
+						return STREAM_OR_HIJACK
 					} else {
 						next.ServeHTTP(w, r)
 					}
@@ -188,7 +189,6 @@ func (*Hooks) PrePostAuthWrapper(next http.Handler) http.Handler {
 		}
 
 		//TODO - confsider parse body and look for status=!20X and put that...
-
 
 		w.WriteHeader(rec.Code)
 		// we copy the original headers first
