@@ -12,8 +12,10 @@ import (
 	"strings"
 	//	"reflect"
 	log "github.com/Sirupsen/logrus"
+	//	"github.com/gorilla/context"
 	"github.com/gorilla/mux"
 	//	"github.com/jeffail/gabs"
+	"github.com/docker/docker/pkg/stringid"
 )
 
 type Hooks struct{}
@@ -36,18 +38,22 @@ func eventParse(originalW http.ResponseWriter, w http.ResponseWriter, r *http.Re
 
 	log.Debug("Got the uri...")
 	log.Debug(r.RequestURI)
-	log.Debug("---------------------------")
-	//	if strings.Contains(r.RequestURI, "/containers") && (strings.Contains(r.RequestURI, "attach") || strings.Contains(r.RequestURI, "exec")) {
-	//		w.Write([]byte("Not supported!"))
-	//		return NOT_SUPPORTED
-	//	} else
+
 	if strings.Contains(r.RequestURI, "/containers") && (strings.Contains(r.RequestURI, "create")) {
 		defer r.Body.Close()
 		reqBody, _ := ioutil.ReadAll(r.Body)
 		log.Debug("Old body: " + string(reqBody))
 		newBody := bytes.Replace(reqBody, []byte("{"), []byte("{\"Labels\": {\""+configs.GetConf().TenancyLabel+"\":\""+r.Header.Get("Label")+"\"},"), 1)
 		log.Debug("New body: " + string(newBody))
-		newReq, e1 := cloneAndModifyRequest(r, bytes.NewReader(newBody), "")
+
+		var newQuery string
+		if "" != r.URL.Query().Get("name") {
+			log.Debug("Postfixing name with Label")
+			newQuery = strings.Replace(r.RequestURI, r.URL.Query().Get("name"), r.URL.Query().Get("name")+r.Header.Get("Label"), 1)
+			log.Debug(newQuery)
+		}
+
+		newReq, e1 := cloneAndModifyRequest(r, bytes.NewReader(newBody), newQuery)
 		if e1 != nil {
 			log.Error(e1)
 		}
@@ -64,9 +70,9 @@ func eventParse(originalW http.ResponseWriter, w http.ResponseWriter, r *http.Re
 		} else {
 			newQuery = r.URL.RequestURI() + "?" + v.Encode()
 		}
-		log.Debug("...New path...")
+		log.Debug("New Query: ")
 		log.Debug(newQuery)
-		log.Debug("...New path...")
+
 		newReq, e1 := cloneAndModifyRequest(r, nil, newQuery)
 		if e1 != nil {
 			log.Error(e1)
@@ -74,17 +80,36 @@ func eventParse(originalW http.ResponseWriter, w http.ResponseWriter, r *http.Re
 		next.ServeHTTP(w, newReq)
 		return CONTAINERS_DETAIL
 	} else if strings.Contains(r.RequestURI, "/containers") || strings.Contains(r.RequestURI, "exec") {
+		var newReq *http.Request
 		name := mux.Vars(r)["name"]
 		log.Debug("Got this as name/Id...")
 		log.Debug(name)
-		log.Debug("Got this as name/Id...")
+		var useNew bool
+		if stringid.IsShortID(stringid.TruncateID(name)) {
+			log.Debug("got Id not ID or short ID - Not a name. Doing nothing")
+			useNew = false
+		} else {
+
+			log.Debug("Got a name. Postfixing Label...")
+			newQuery := strings.Replace(r.RequestURI, name, name+r.Header.Get("Label"), 1)
+			name = name + r.Header.Get("Label")
+			log.Debug("New Query: ")
+			log.Debug(newQuery)
+			newReq, _ = cloneAndModifyRequest(r, nil, newQuery)
+			useNew = true
+			//			r = newReq
+		}
 
 		//TODO - use better client and use client better:-)
-		req, e1 := http.NewRequest("GET", "http://"+r.Host+"/containers/json?all=1", nil)
-		req.Header.Set(configs.GetConf().AuthTokenHeader, r.Header.Get(configs.GetConf().AuthTokenHeader))
+		req, e1 := http.NewRequest("GET", "http://"+r.Host+"/containers/"+name+"/json", nil)
+		req.Header.Set(configs.GetConf().AuthTokenHeader, "admin")
 
 		client := &http.Client{}
 		ownwerShipResp, e1 := client.Do(req)
+		if e1 != nil {
+			log.Error(e1)
+		}
+		log.Debug("&&&&&&^&^&^**&*&*&*")
 
 		if e1 != nil {
 			log.Error("Error checking container ownership...", e1)
@@ -99,17 +124,25 @@ func eventParse(originalW http.ResponseWriter, w http.ResponseWriter, r *http.Re
 				log.Debug("OwnerShip body....")
 				log.Debug(string(contents))
 				log.Debug("OwnerShip body....")
-				b := []byte(name)
+				b := []byte(r.Header.Get("Label"))
 				if bytes.Contains(contents, b) {
 					if strings.Contains(r.RequestURI, "logs") || strings.Contains(r.RequestURI, "attach") || strings.Contains(r.RequestURI, "exec") {
-						next.ServeHTTP(originalW, r)
+						if useNew {
+							next.ServeHTTP(originalW, newReq)
+						} else {
+							next.ServeHTTP(originalW, r)
+						}
+
 						return STREAM_OR_HIJACK
 					} else {
-						next.ServeHTTP(w, r)
+						if useNew {
+							next.ServeHTTP(originalW, newReq)
+						} else {
+							next.ServeHTTP(originalW, r)
+						}
 					}
 
 				} else {
-
 					w.Write([]byte("\n You are not the owner of that container! \n"))
 					return UNAUTHORIZED
 
@@ -130,8 +163,9 @@ func eventParse(originalW http.ResponseWriter, w http.ResponseWriter, r *http.Re
 
 func cloneAndModifyRequest(r *http.Request, body io.Reader, urlStr string) (*http.Request, error) {
 	// shallow copy of the struct
+
 	r2 := new(http.Request)
-	*r2 = *r
+	//	*r2 = *r
 	// deep copy of the Header
 	r2.Header = make(http.Header, len(r.Header))
 	for k, s := range r.Header {
@@ -145,11 +179,14 @@ func cloneAndModifyRequest(r *http.Request, body io.Reader, urlStr string) (*htt
 	}
 	if urlStr != "" {
 		u, err := url.Parse(urlStr)
+
 		if err != nil {
 			return nil, err
 		}
 		r2.URL = u
+		//		r2.RequestURI = r2.URL.RequestURI()
 	}
+
 	return r2, nil
 }
 

@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	log "github.com/Sirupsen/logrus"
 	dockerfilters "github.com/docker/docker/pkg/parsers/filters"
 	"github.com/docker/swarm/cluster"
 	"github.com/docker/swarm/version"
@@ -272,7 +273,19 @@ func getContainersJSON(c *context, w http.ResponseWriter, r *http.Request) {
 
 // GET /containers/{name:.*}/json
 func getContainerJSON(c *context, w http.ResponseWriter, r *http.Request) {
+	//TODO - fix this blasphemy
+	log.Println("))))))))******************))))))))))))))))********))")
 	name := mux.Vars(r)["name"]
+	log.Println(name)
+	log.Println(r)
+
+	if "" == name {
+		name = strings.Replace(r.URL.Path, "/containers/", "", 1)
+		name = strings.Replace(name, "/json", "", 1)
+	}
+
+	log.Debug(name)
+	log.Println("))))))))))))))))))))))))))))))))))))))))))))))))))))")
 	container := c.cluster.Container(name)
 	if container == nil {
 		httpError(w, fmt.Sprintf("No such container %s", name), http.StatusNotFound)
@@ -347,8 +360,21 @@ func deleteContainers(c *context, w http.ResponseWriter, r *http.Request) {
 		httpError(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
+//TODO - fix this blasphemy
+	log.Println("))))))))******************))))))))))))))))********))")
 	name := mux.Vars(r)["name"]
+	log.Println(name)
+	log.Println(r)
+
+	if "" == name {
+		name = strings.Replace(r.URL.Path, "/containers/", "", 1)
+		name = strings.Replace(name, "/json", "", 1)
+	}
+
+	log.Debug(name)
+	log.Println("))))))))))))))))))))))))))))))))))))))))))))))))))))")
+
+	
 	force := boolValue(r, "force")
 	container := c.cluster.Container(name)
 	if container == nil {
@@ -433,7 +459,19 @@ func getEvents(c *context, w http.ResponseWriter, r *http.Request) {
 
 // POST /containers/{name:.*}/exec
 func postContainersExec(c *context, w http.ResponseWriter, r *http.Request) {
+	//TODO - fix this blasphemy
+	log.Println("))))))))******************))))))))))))))))********))")
 	name := mux.Vars(r)["name"]
+	log.Println(name)
+	log.Println(r)
+
+	if "" == name {
+		name = strings.Replace(r.URL.Path, "/containers/", "", 1)
+		name = strings.Replace(name, "/json", "", 1)
+	}
+
+	log.Debug(name)
+	log.Println("))))))))))))))))))))))))))))))))))))))))))))))))))))")
 	container := c.cluster.Container(name)
 	if container == nil {
 		httpError(w, fmt.Sprintf("No such container %s", name), http.StatusNotFound)

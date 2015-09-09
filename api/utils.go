@@ -12,6 +12,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/docker/swarm/cluster"
+//	"github.com/gorilla/mux"
 )
 
 // Emit an HTTP error and log it.
@@ -28,6 +29,11 @@ func newClientAndScheme(tlsConfig *tls.Config) (*http.Client, string) {
 }
 
 func getContainerFromVars(c *context, vars map[string]string) (string, *cluster.Container, error) {
+
+	log.Println("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
+	log.Println(vars["name"])
+	log.Println("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
+
 	if name, ok := vars["name"]; ok {
 		if container := c.cluster.Container(name); container != nil {
 			return name, container, nil
