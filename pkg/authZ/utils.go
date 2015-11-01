@@ -15,7 +15,7 @@ import (
 
 //UTILS
 
-func modifyRequest(r *http.Request, body io.Reader, urlStr string, containerId string) (*http.Request, error) {
+func modifyRequest(r *http.Request, body io.Reader, urlStr string, containerID string) (*http.Request, error) {
 
 	rc, ok := body.(io.ReadCloser)
 	if !ok && body != nil {
@@ -29,7 +29,7 @@ func modifyRequest(r *http.Request, body io.Reader, urlStr string, containerId s
 			return nil, err
 		}
 		r.URL = u
-		mux.Vars(r)["name"] = containerId
+		mux.Vars(r)["name"] = containerID
 	}
 
 	return r, nil

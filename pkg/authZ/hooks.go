@@ -8,28 +8,34 @@ import (
 	"github.com/docker/swarm/cluster"
 )
 
-//TODO  - Infra for overriding swarm
+//Hooks - Entry point to AuthZ mechanisem
+type Hooks struct{}
+
+//TODO  - Hooks Infra for overriding swarm
 //TODO  - Take bussiness logic out
 //TODO  - Refactor packages
 //TODO  - Expand API
 //TODO -  Images...
 //TODO - https://github.com/docker/docker/pull/15953
 //TODO - https://github.com/docker/docker/pull/16331
-type Hooks struct{}
 
-var authZAPI AuthZAPI
+var authZAPI HandleAuthZAPI
 var aclsAPI ACLsAPI
 
-type EVENT_ENUM int
-type APPROVAL_ENUM int
+//EventEnum - State of event
+type EventEnum int
 
+//ApprovalEnum - State of approval
+type ApprovalEnum int
+
+//PrePostAuthWrapper - Hook point from primary to the authZ mechanisem
 func (*Hooks) PrePostAuthWrapper(cluster cluster.Cluster, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		eventType := eventParse(r)
-		allowed, containerId := aclsAPI.ValidateRequest(cluster, eventType, w, r)
+		allowed, containerID := aclsAPI.ValidateRequest(cluster, eventType, w, r)
 		//TODO - all kinds of conditionals
-		if eventType == PASS_AS_IS || allowed == APPROVED || allowed == CONDITION_FILTER {
-			authZAPI.HandleEvent(eventType, w, r, next, containerId)
+		if eventType == passAsIs || allowed == approved || allowed == conditionFilter {
+			authZAPI.HandleEvent(eventType, w, r, next, containerID)
 		} else {
 			w.WriteHeader(http.StatusUnauthorized)
 			w.Write([]byte("Not Authorized!"))
@@ -37,35 +43,36 @@ func (*Hooks) PrePostAuthWrapper(cluster cluster.Cluster, next http.Handler) htt
 	})
 }
 
-func eventParse(r *http.Request) EVENT_ENUM {
+func eventParse(r *http.Request) EventEnum {
 	log.Debug("Got the uri...", r.RequestURI)
 
 	if strings.Contains(r.RequestURI, "/containers") && (strings.Contains(r.RequestURI, "create")) {
-		return CONTAINER_CREATE
+		return containerCreate
 	}
 
 	if strings.Contains(r.RequestURI, "/containers/json") {
-		return CONTAINERS_LIST
+		return containersList
 	}
 
 	if strings.Contains(r.RequestURI, "/containers") &&
 		(strings.Contains(r.RequestURI, "logs") || strings.Contains(r.RequestURI, "attach") || strings.Contains(r.RequestURI, "exec")) {
-		return STREAM_OR_HIJACK
+		return streamOrHijack
 	}
 	if strings.Contains(r.RequestURI, "/containers") && strings.HasSuffix(r.RequestURI, "/json") {
-		return CONTAINER_INSPECT
+		return containerInspect
 	}
 	if strings.Contains(r.RequestURI, "/containers") {
-		return CONTAINER_OTHERS
+		return containerOthers
 	}
 
 	if strings.Contains(r.RequestURI, "Will add to here all APIs we explicitly want to block") {
-		return NOT_SUPPORTED
+		return notSupported
 	}
 
-	return PASS_AS_IS
+	return passAsIs
 }
 
+//Init - Initialize the Validation and Handling APIs
 func (*Hooks) Init() {
 	//TODO - should use a map for all the Pre . Post function like in primary.go
 

@@ -91,7 +91,7 @@ var (
 		Value: strategy.List()[0],
 	}
 
-	multiTenant = cli.BoolFlag{
+	flMultiTenant = cli.BoolFlag{
 		Name:   "multiTenant",
 		Usage:  "multiTenant mode",
 		EnvVar: "multiTenant",

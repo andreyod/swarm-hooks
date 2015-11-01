@@ -14,16 +14,19 @@ import (
 	"github.com/gorilla/mux"
 )
 
+//DefaultImp - Default basic label based implementation of ACLs & tenancy enforcment
 type DefaultImp struct{}
 
+//Init - Any required initialization
 func (*DefaultImp) Init() error {
 
 	return nil
 }
 
-func (*DefaultImp) HandleEvent(eventType EVENT_ENUM, w http.ResponseWriter, r *http.Request, next http.Handler, containerId string) {
+//HandleEvent - Implement approved operation - Default labels based implmentation
+func (*DefaultImp) HandleEvent(eventType EventEnum, w http.ResponseWriter, r *http.Request, next http.Handler, containerID string) {
 	switch eventType {
-	case CONTAINER_CREATE:
+	case containerCreate:
 		log.Debug("In create...")
 		defer r.Body.Close()
 		reqBody, _ := ioutil.ReadAll(r.Body)
@@ -46,12 +49,12 @@ func (*DefaultImp) HandleEvent(eventType EVENT_ENUM, w http.ResponseWriter, r *h
 		}
 		next.ServeHTTP(w, newReq)
 
-	case CONTAINER_INSPECT:
+	case containerInspect:
 		log.Debug("In inspect...")
 		rec := httptest.NewRecorder()
 
-		r.URL.Path = strings.Replace(r.URL.Path, mux.Vars(r)["name"], containerId, 1)
-		mux.Vars(r)["name"] = containerId
+		r.URL.Path = strings.Replace(r.URL.Path, mux.Vars(r)["name"], containerID, 1)
+		mux.Vars(r)["name"] = containerID
 		next.ServeHTTP(rec, r)
 
 		/*POST Swarm*/
@@ -62,10 +65,10 @@ func (*DefaultImp) HandleEvent(eventType EVENT_ENUM, w http.ResponseWriter, r *h
 		newBody := cleanUpLabeling(r, rec)
 		w.Write(newBody)
 
-	case CONTAINERS_LIST:
+	case containersList:
 		log.Debug("In list...")
 		var v = url.Values{}
-		mapS := map[string][]string{"label": []string{tenancyLabel + "=" + r.Header.Get(authZTokenHeaderName)}}
+		mapS := map[string][]string{"label": {tenancyLabel + "=" + r.Header.Get(authZTokenHeaderName)}}
 		filterJSON, _ := json.Marshal(mapS)
 		v.Set("filters", string(filterJSON))
 		var newQuery string
@@ -76,7 +79,7 @@ func (*DefaultImp) HandleEvent(eventType EVENT_ENUM, w http.ResponseWriter, r *h
 		}
 		log.Debug("New Query: ", newQuery)
 
-		newReq, e1 := modifyRequest(r, nil, newQuery, containerId)
+		newReq, e1 := modifyRequest(r, nil, newQuery, containerID)
 		if e1 != nil {
 			log.Error(e1)
 		}
@@ -95,24 +98,24 @@ func (*DefaultImp) HandleEvent(eventType EVENT_ENUM, w http.ResponseWriter, r *h
 
 		w.Write(newBody)
 
-	case CONTAINER_OTHERS:
+	case containerOthers:
 		log.Debug("In others...")
-		r.URL.Path = strings.Replace(r.URL.Path, mux.Vars(r)["name"], containerId, 1)
-		mux.Vars(r)["name"] = containerId
+		r.URL.Path = strings.Replace(r.URL.Path, mux.Vars(r)["name"], containerID, 1)
+		mux.Vars(r)["name"] = containerID
 
 		next.ServeHTTP(w, r)
 
 		//TODO - hijack and others are the same because we handle no post and no stream manipulation and no handler override yet
-	case STREAM_OR_HIJACK:
+	case streamOrHijack:
 		log.Debug("In stream/hijack...")
-		r.URL.Path = strings.Replace(r.URL.Path, mux.Vars(r)["name"], containerId, 1)
-		mux.Vars(r)["name"] = containerId
+		r.URL.Path = strings.Replace(r.URL.Path, mux.Vars(r)["name"], containerID, 1)
+		mux.Vars(r)["name"] = containerID
 		next.ServeHTTP(w, r)
 
-	case PASS_AS_IS:
+	case passAsIs:
 		log.Debug("Forwarding the request AS IS...")
 		next.ServeHTTP(w, r)
-	case UNAUTHORIZED:
+	case unauthorized:
 		log.Debug("In UNAUTHORIZED...")
 	default:
 		log.Debug("In default...")

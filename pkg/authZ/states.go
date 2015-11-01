@@ -1,19 +1,21 @@
 package authZ
 
 const (
-	NOT_SUPPORTED EVENT_ENUM = iota
-	CONTAINER_CREATE
-	CONTAINERS_LIST
-	CONTAINER_INSPECT
-	CONTAINER_OTHERS
-	PASS_AS_IS
-	UNAUTHORIZED
-	STREAM_OR_HIJACK
+	//EventEnum - Describes type of events for the Validation logic
+	notSupported EventEnum = iota
+	containerCreate
+	containersList
+	containerInspect
+	containerOthers
+	passAsIs
+	unauthorized
+	streamOrHijack
 )
 
 const (
-	APPROVED APPROVAL_ENUM = iota
-	NOT_APPROVED
-	CONDITION_FILTER
-	CONDITION_OVERRIDE
+	//ApprovalEnum - Describes Validations verdict
+	approved ApprovalEnum = iota
+	notApproved
+	conditionFilter
+	conditionOverride
 )

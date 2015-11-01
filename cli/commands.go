@@ -29,7 +29,7 @@ var (
 				flHeartBeat,
 				flEnableCors,
 				flCluster, flDiscoveryOpt, flClusterOpt,
-				multiTenant},
+				flMultiTenant},
 			Action: manage,
 		},
 		{

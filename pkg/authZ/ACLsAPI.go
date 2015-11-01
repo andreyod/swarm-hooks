@@ -6,7 +6,7 @@ import (
 	"github.com/docker/swarm/cluster"
 )
 
-//API for backend ACLs services - for now only tenant seperation - finer grained later
+//ACLsAPI - API for backend ACLs services - for now only tenant seperation - finer grained later
 type ACLsAPI interface {
 
 	//The Admin should first provision itself before starting to servce
@@ -14,5 +14,5 @@ type ACLsAPI interface {
 
 	//Is valid and the label for the token if it is valid.
 	//TODO - expand response according to design
-	ValidateRequest(cluster cluster.Cluster, eventType EVENT_ENUM, w http.ResponseWriter, r *http.Request) (APPROVAL_ENUM, string)
+	ValidateRequest(cluster cluster.Cluster, eventType EventEnum, w http.ResponseWriter, r *http.Request) (ApprovalEnum, string)
 }
