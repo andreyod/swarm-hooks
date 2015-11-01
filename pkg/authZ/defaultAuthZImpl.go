@@ -65,7 +65,7 @@ func (*DefaultImp) HandleEvent(eventType EVENT_ENUM, w http.ResponseWriter, r *h
 	case CONTAINERS_LIST:
 		log.Debug("In list...")
 		var v = url.Values{}
-		mapS := map[string][]string{"label": []string{tenancyLabel + "=" + r.Header.Get(authZTokenHeaderName)}}
+		mapS := map[string][]string{"label": {tenancyLabel + "=" + r.Header.Get(authZTokenHeaderName)}}
 		filterJSON, _ := json.Marshal(mapS)
 		v.Set("filters", string(filterJSON))
 		var newQuery string

@@ -16,7 +16,6 @@ import (
 
 type DefaultACLsImpl struct{}
 
-
 var authZTokenHeaderName string = "X-Auth-Token"
 var tenancyLabel string = "com.swarm.tenant.0"
 
