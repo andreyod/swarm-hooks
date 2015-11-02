@@ -14,7 +14,7 @@ import (
 	"github.com/gorilla/mux"
 )
 
-//DefaultImp - Default basic label based implementation of ACLs & tenancy enforcment 
+//DefaultImp - Default basic label based implementation of ACLs & tenancy enforcment
 type DefaultImp struct{}
 
 //Init - Any required initialization
