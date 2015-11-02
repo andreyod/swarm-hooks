@@ -22,7 +22,9 @@ type Hooks struct{}
 var authZAPI HandleAuthZAPI
 var aclsAPI ACLsAPI
 
+//EventEnum - State of event
 type EventEnum int
+//ApprovalEnum - State of approval
 type ApprovalEnum int
 
 //PrePostAuthWrapper - Hook point from primary to the authZ mechanisem
