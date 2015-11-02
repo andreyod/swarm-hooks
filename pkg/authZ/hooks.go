@@ -17,19 +17,20 @@ import (
 //TODO - https://github.com/docker/docker/pull/16331
 type Hooks struct{}
 
-var authZAPI AuthZAPI
+var authZAPI HandleAuthZAPI
 var aclsAPI ACLsAPI
 
 type eventEnum int
 type approvalEnum int
 
+//PrePostAuthWrapper - Hook point from primary to the authZ mechanisem
 func (*Hooks) PrePostAuthWrapper(cluster cluster.Cluster, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		eventType := eventParse(r)
-		allowed, containerId := aclsAPI.ValidateRequest(cluster, eventType, w, r)
+		allowed, containerID := aclsAPI.ValidateRequest(cluster, eventType, w, r)
 		//TODO - all kinds of conditionals
 		if eventType == passAsIs || allowed == approved || allowed == conditionFilter {
-			authZAPI.HandleEvent(eventType, w, r, next, containerId)
+			authZAPI.HandleEvent(eventType, w, r, next, containerID)
 		} else {
 			w.WriteHeader(http.StatusUnauthorized)
 			w.Write([]byte("Not Authorized!"))
@@ -66,6 +67,7 @@ func eventParse(r *http.Request) eventEnum {
 	return passAsIs
 }
 
+//Init - Initialize the Validation and Handling APIs
 func (*Hooks) Init() {
 	//TODO - should use a map for all the Pre . Post function like in primary.go
 
