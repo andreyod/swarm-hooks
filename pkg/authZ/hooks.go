@@ -8,7 +8,7 @@ import (
 	"github.com/docker/swarm/cluster"
 )
 
-//TODO  - Infra for overriding swarm
+//TODO  - Hooks Infra for overriding swarm
 //TODO  - Take bussiness logic out
 //TODO  - Refactor packages
 //TODO  - Expand API
@@ -20,15 +20,15 @@ type Hooks struct{}
 var authZAPI AuthZAPI
 var aclsAPI ACLsAPI
 
-type EVENT_ENUM int
-type APPROVAL_ENUM int
+type eventEnum int
+type approvalEnum int
 
 func (*Hooks) PrePostAuthWrapper(cluster cluster.Cluster, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		eventType := eventParse(r)
 		allowed, containerId := aclsAPI.ValidateRequest(cluster, eventType, w, r)
 		//TODO - all kinds of conditionals
-		if eventType == PASS_AS_IS || allowed == APPROVED || allowed == CONDITION_FILTER {
+		if eventType == passAsIs || allowed == approved || allowed == conditionFilter {
 			authZAPI.HandleEvent(eventType, w, r, next, containerId)
 		} else {
 			w.WriteHeader(http.StatusUnauthorized)
@@ -37,33 +37,33 @@ func (*Hooks) PrePostAuthWrapper(cluster cluster.Cluster, next http.Handler) htt
 	})
 }
 
-func eventParse(r *http.Request) EVENT_ENUM {
+func eventParse(r *http.Request) eventEnum {
 	log.Debug("Got the uri...", r.RequestURI)
 
 	if strings.Contains(r.RequestURI, "/containers") && (strings.Contains(r.RequestURI, "create")) {
-		return CONTAINER_CREATE
+		return containerCreate
 	}
 
 	if strings.Contains(r.RequestURI, "/containers/json") {
-		return CONTAINERS_LIST
+		return containersList
 	}
 
 	if strings.Contains(r.RequestURI, "/containers") &&
 		(strings.Contains(r.RequestURI, "logs") || strings.Contains(r.RequestURI, "attach") || strings.Contains(r.RequestURI, "exec")) {
-		return STREAM_OR_HIJACK
+		return streamOrHijack
 	}
 	if strings.Contains(r.RequestURI, "/containers") && strings.HasSuffix(r.RequestURI, "/json") {
-		return CONTAINER_INSPECT
+		return containerInspect
 	}
 	if strings.Contains(r.RequestURI, "/containers") {
-		return CONTAINER_OTHERS
+		return containerOthers
 	}
 
 	if strings.Contains(r.RequestURI, "Will add to here all APIs we explicitly want to block") {
-		return NOT_SUPPORTED
+		return notSupported
 	}
 
-	return PASS_AS_IS
+	return passAsIs
 }
 
 func (*Hooks) Init() {

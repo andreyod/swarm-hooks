@@ -14,36 +14,37 @@ import (
 	"github.com/gorilla/mux"
 )
 
+//DefaultACLsImpl - Default implementation of ACLs API
 type DefaultACLsImpl struct{}
 
-var authZTokenHeaderName string = "X-Auth-Token"
-var tenancyLabel string = "com.swarm.tenant.0"
+var authZTokenHeaderName = "X-Auth-Token"
+var tenancyLabel = "com.swarm.tenant.0"
 
 /*
-Who wants to do what - allow or not
+ValidateRequest - Who wants to do what - allow or not
 */
-func (*DefaultACLsImpl) ValidateRequest(cluster cluster.Cluster, eventType EVENT_ENUM, w http.ResponseWriter, r *http.Request) (APPROVAL_ENUM, string) {
+func (*DefaultACLsImpl) ValidateRequest(cluster cluster.Cluster, eventType eventEnum, w http.ResponseWriter, r *http.Request) (approvalEnum, string) {
 	tokenToValidate := r.Header.Get(authZTokenHeaderName)
 
 	if tokenToValidate == "" {
-		return NOT_APPROVED, ""
+		return notApproved, ""
 	}
 	//TODO - Duplication revise
 	switch eventType {
-	case CONTAINER_CREATE:
-		return APPROVED, ""
-	case CONTAINERS_LIST:
-		return CONDITION_FILTER, ""
-	case UNAUTHORIZED:
-		return NOT_APPROVED, ""
+	case containerCreate:
+		return approved, ""
+	case containersList:
+		return conditionFilter, ""
+	case unauthorized:
+		return notApproved, ""
 	default:
 		//CONTAINER_INSPECT / CONTAINER_OTHERS / STREAM_OR_HIJACK / PASS_AS_IS
 		isOwner, id := checkOwnerShip(cluster, tokenToValidate, r)
 		if isOwner {
-			return APPROVED, id
+			return approved, id
 		}
 	}
-	return NOT_APPROVED, ""
+	return notApproved, ""
 }
 
 //TODO - Pass by ref ?
@@ -61,9 +62,9 @@ func checkOwnerShip(cluster cluster.Cluster, tenantName string, r *http.Request)
 			log.Debug("Tenant Lable: ", container.Labels[tenancyLabel])
 			if container.Labels[tenancyLabel] == tenantName {
 				return true, container.Info.Id
-			} else {
-				return false, ""
 			}
+			return false, ""
+
 		}
 		if container.Labels[tenancyLabel] == tenantName {
 			tenantSet[container.Id] = true
@@ -94,6 +95,7 @@ func checkOwnerShip(cluster cluster.Cluster, tenantName string, r *http.Request)
 	return false, ""
 }
 
+//Init - Any required initialization
 func (*DefaultACLsImpl) Init() error {
 	return nil
 }
