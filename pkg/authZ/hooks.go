@@ -8,6 +8,9 @@ import (
 	"github.com/docker/swarm/cluster"
 )
 
+//Hooks - Entry point to AuthZ mechanisem
+type Hooks struct{}
+
 //TODO  - Hooks Infra for overriding swarm
 //TODO  - Take bussiness logic out
 //TODO  - Refactor packages
@@ -15,13 +18,12 @@ import (
 //TODO -  Images...
 //TODO - https://github.com/docker/docker/pull/15953
 //TODO - https://github.com/docker/docker/pull/16331
-type Hooks struct{}
 
 var authZAPI HandleAuthZAPI
 var aclsAPI ACLsAPI
 
-type eventEnum int
-type approvalEnum int
+type EventEnum int
+type ApprovalEnum int
 
 //PrePostAuthWrapper - Hook point from primary to the authZ mechanisem
 func (*Hooks) PrePostAuthWrapper(cluster cluster.Cluster, next http.Handler) http.Handler {
@@ -38,7 +40,7 @@ func (*Hooks) PrePostAuthWrapper(cluster cluster.Cluster, next http.Handler) htt
 	})
 }
 
-func eventParse(r *http.Request) eventEnum {
+func eventParse(r *http.Request) EventEnum {
 	log.Debug("Got the uri...", r.RequestURI)
 
 	if strings.Contains(r.RequestURI, "/containers") && (strings.Contains(r.RequestURI, "create")) {

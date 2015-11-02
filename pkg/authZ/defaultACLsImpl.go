@@ -23,7 +23,7 @@ var tenancyLabel = "com.swarm.tenant.0"
 /*
 ValidateRequest - Who wants to do what - allow or not
 */
-func (*DefaultACLsImpl) ValidateRequest(cluster cluster.Cluster, eventType eventEnum, w http.ResponseWriter, r *http.Request) (approvalEnum, string) {
+func (*DefaultACLsImpl) ValidateRequest(cluster cluster.Cluster, eventType EventEnum, w http.ResponseWriter, r *http.Request) (ApprovalEnum, string) {
 	tokenToValidate := r.Header.Get(authZTokenHeaderName)
 
 	if tokenToValidate == "" {

@@ -24,7 +24,7 @@ func (*DefaultImp) Init() error {
 }
 
 //HandleEvent - Implement approved operation - Default labels based implmentation
-func (*DefaultImp) HandleEvent(eventType eventEnum, w http.ResponseWriter, r *http.Request, next http.Handler, containerID string) {
+func (*DefaultImp) HandleEvent(eventType EventEnum, w http.ResponseWriter, r *http.Request, next http.Handler, containerID string) {
 	switch eventType {
 	case containerCreate:
 		log.Debug("In create...")

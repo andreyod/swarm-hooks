@@ -1,8 +1,8 @@
 package authZ
 
 const (
-	//eventEnum - Describes type of events for the Validation logic
-	notSupported eventEnum = iota
+	//EventEnum - Describes type of events for the Validation logic
+	notSupported EventEnum = iota
 	containerCreate
 	containersList
 	containerInspect
@@ -13,8 +13,8 @@ const (
 )
 
 const (
-	//approvalEnum - Describes Validations verdict
-	approved approvalEnum = iota
+	//ApprovalEnum - Describes Validations verdict
+	approved ApprovalEnum = iota
 	notApproved
 	conditionFilter
 	conditionOverride
