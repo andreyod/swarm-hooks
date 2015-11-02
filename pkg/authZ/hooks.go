@@ -24,6 +24,7 @@ var aclsAPI ACLsAPI
 
 //EventEnum - State of event
 type EventEnum int
+
 //ApprovalEnum - State of approval
 type ApprovalEnum int
 
