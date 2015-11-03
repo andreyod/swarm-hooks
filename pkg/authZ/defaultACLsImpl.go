@@ -20,6 +20,8 @@ type DefaultACLsImpl struct{}
 var authZTokenHeaderName = "X-Auth-Token"
 var tenancyLabel = "com.swarm.tenant.0"
 
+var keyStoneAPI keystone.KeyStoneAPI
+
 /*
 ValidateRequest - Who wants to do what - allow or not
 */
@@ -29,6 +31,9 @@ func (*DefaultACLsImpl) ValidateRequest(cluster cluster.Cluster, eventType Event
 	if tokenToValidate == "" {
 		return notApproved, ""
 	}
+	
+	keyStoneAPI.ValidateToken(tokenToValidate)
+	
 	//TODO - Duplication revise
 	switch eventType {
 	case containerCreate:
