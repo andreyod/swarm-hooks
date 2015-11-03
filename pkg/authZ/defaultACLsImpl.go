@@ -10,7 +10,7 @@ import (
 	"github.com/docker/swarm/cluster"
 	//	"github.com/docker/swarm/cluster/swarm"
 	"strings"
-
+	"github.com/docker/swarm/pkg/authZ/keystone"
 	"github.com/gorilla/mux"
 )
 
@@ -97,5 +97,8 @@ func checkOwnerShip(cluster cluster.Cluster, tenantName string, r *http.Request)
 
 //Init - Any required initialization
 func (*DefaultACLsImpl) Init() error {
+	//This is the keyStone version...
+	keyStoneAPI := new(keystone.KeyStoneAPI)
+	keyStoneAPI.Init()
 	return nil
 }
