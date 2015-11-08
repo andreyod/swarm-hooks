@@ -29,7 +29,7 @@ curl -H "X-Auth-Token:$UserToken" "$SwarmNode/containers/$prefix/top" | jq '.'
 
 sleep 1
 echo "Listing containers..."
-curl -H "X-Auth-Token: $UserToken"  $SwarmNode/containers/json?all=1 | jq '.'
+curl -v -H "X-Auth-Token: $UserToken"  $SwarmNode/containers/json?all=1 | jq '.'
 sleep 1
 
 #echo "showing the underline lable mechanisem..."
@@ -49,7 +49,7 @@ sleep 1
 #sleep 1
 
 echo "Inspecting the container..."
-curl -H "X-Auth-Token:$UserToken" $SwarmNode/containers/$ContainerId/json | jq '.'
+curl -v -H "X-Auth-Token:$UserToken" $SwarmNode/containers/$ContainerId/json | jq '.'
 sleep 2
 
 echo "Getting the container logs..."
