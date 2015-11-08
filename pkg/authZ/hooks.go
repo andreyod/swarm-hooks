@@ -75,8 +75,9 @@ func eventParse(r *http.Request) EventEnum {
 //Init - Initialize the Validation and Handling APIs
 func (*Hooks) Init() {
 	//TODO - should use a map for all the Pre . Post function like in primary.go
-
+	
 	aclsAPI = new(DefaultACLsImpl)
+	aclsAPI.Init()
 	authZAPI = new(DefaultImp)
 	//TODO reflection using configuration file tring for the backend type
 
