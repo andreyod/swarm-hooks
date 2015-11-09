@@ -32,16 +32,20 @@ func (*DefaultACLsImpl) ValidateRequest(cluster cluster.Cluster, eventType Event
 		return notApproved, ""
 	}
 	
-	keyStoneAPI.ValidateToken(tokenToValidate)
+	tokenAuthorized,tenantId := keyStoneAPI.ValidateToken(tokenToValidate)
+	if !tokenAuthorized {
+		log.Debug("token not authorized")
+		return notApproved, ""  
+	}
+	log.Debug("tenantId is "+tenantId)
 	
 	//TODO - Duplication revise
 	switch eventType {
+
 	case containerCreate:
 		return approved, ""
 	case containersList:
 		return conditionFilter, ""
-	case unauthorized:
-		return notApproved, ""
 	default:
 		//CONTAINER_INSPECT / CONTAINER_OTHERS / STREAM_OR_HIJACK / PASS_AS_IS
 		isOwner, id := checkOwnerShip(cluster, tokenToValidate, r)
