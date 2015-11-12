@@ -33,13 +33,13 @@ func (*DefaultImp) HandleEvent(eventType EventEnum, w http.ResponseWriter, r *ht
 		log.Debug("Old body: " + string(reqBody))
 
 		//TODO - Here we just use the token for the tenant name for now
-		newBody := bytes.Replace(reqBody, []byte("{"), []byte("{\"Labels\": {\""+tenancyLabel+"\":\""+r.Header.Get(authZTokenHeaderName)+"\"},"), 1)
+		newBody := bytes.Replace(reqBody, []byte("{"), []byte("{\"Labels\": {\""+tenancyLabel+"\":\""+r.Header.Get(authZTenantIdHeaderName)+"\"},"), 1)
 		log.Debug("New body: " + string(newBody))
 
 		var newQuery string
 		if "" != r.URL.Query().Get("name") {
 			log.Debug("Postfixing name with Label...")
-			newQuery = strings.Replace(r.RequestURI, r.URL.Query().Get("name"), r.URL.Query().Get("name")+r.Header.Get(authZTokenHeaderName), 1)
+			newQuery = strings.Replace(r.RequestURI, r.URL.Query().Get("name"), r.URL.Query().Get("name")+r.Header.Get(authZTenantIdHeaderName), 1)
 			log.Debug(newQuery)
 		}
 
@@ -68,7 +68,7 @@ func (*DefaultImp) HandleEvent(eventType EventEnum, w http.ResponseWriter, r *ht
 	case containersList:
 		log.Debug("In list...")
 		var v = url.Values{}
-		mapS := map[string][]string{"label": {tenancyLabel + "=" + r.Header.Get(authZTokenHeaderName)}}
+		mapS := map[string][]string{"label": {tenancyLabel + "=" + r.Header.Get(authZTenantIdHeaderName)}}
 		filterJSON, _ := json.Marshal(mapS)
 		v.Set("filters", string(filterJSON))
 		var newQuery string

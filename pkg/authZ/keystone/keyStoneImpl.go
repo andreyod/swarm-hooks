@@ -59,11 +59,12 @@ func (*KeyStoneAPI) Init() error {
 // 1- Validate Token
 // 2- Get ACLs or Lable for your valid token
 
-func (*KeyStoneAPI) ValidateToken(token string) (bool, string) {
+func (*KeyStoneAPI) ValidateToken(token string, tenantId string) (bool, string) {
 	log.Info("Going to validate token: " + token)
+	log.Info("Going to validate tenantId: " + tenantId)
 	
 	log.Info("Please set up the cache...")
-	var tenantId string
+//	var tenantId string
 //	log.Info("Checking cache...")
 //	tenantId := cacheAPI.Get(token)
 //	if tenantId != "" {
@@ -75,7 +76,6 @@ func (*KeyStoneAPI) ValidateToken(token string) (bool, string) {
 	}
 	token = strings.TrimSpace(token)
 	resp := doHTTPreq("GET", configs.GetConf().KeystoneUrl+"tenants", "", headers)
-	//	resp := doHTTPreq("GET", "http://127.0.0.1:5000/v2.0/tenants", "", headers)
 	defer resp.Body.Close()
 	log.Debug("response Status:", resp.Status)
 	log.Debug("response Headers:", resp.Header)
@@ -87,7 +87,14 @@ func (*KeyStoneAPI) ValidateToken(token string) (bool, string) {
 	log.Info("Valid user token!")
 	jsonParsed, _ := gabs.ParseJSON(body)
 	children, _ := jsonParsed.S("tenants").Children()
-	tenantId = children[0].Path("id").Data().(string)
-	log.Info(tenantId)
-	return true, tenantId
+	//tenantId = children[i].Path("id").Data().(string)
+	for i := 0; i < len(children); i++ {		
+		if children[i].Path("id").Data().(string) == tenantId {
+			log.Info("tenantId Found: ")
+			return true, tenantId
+		}
+	}
+	log.Info("tenantId not Found: ")
+	//log.Info(tenantId)
+	return false, ""
 }
