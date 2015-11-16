@@ -9,7 +9,6 @@ import (
 	"github.com/docker/swarm/cluster"
 	//	"github.com/docker/swarm/cluster/swarm"
 
-	"github.com/docker/swarm/cluster"
 
 //	"github.com/docker/swarm/cluster/swarm"
 
