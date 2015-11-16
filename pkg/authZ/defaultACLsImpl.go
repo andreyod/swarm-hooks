@@ -6,7 +6,7 @@ import (
 	//	"fmt"
 	"net/http"
 
-	"github.com/docker/swarm/cluster"
+	log "github.com/Sirupsen/logrus"
 	//	"github.com/docker/swarm/cluster/swarm"
 
 	"github.com/docker/swarm/pkg/authZ/keystone"
