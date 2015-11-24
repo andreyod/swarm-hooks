@@ -6,6 +6,8 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/docker/swarm/cluster"
+	"github.com/docker/swarm/pkg/authZ/keystone"
+	"github.com/docker/swarm/pkg/authZ/states"
 )
 
 //Hooks - Entry point to AuthZ mechanisem
@@ -32,9 +34,9 @@ type ApprovalEnum int
 func (*Hooks) PrePostAuthWrapper(cluster cluster.Cluster, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		eventType := eventParse(r)
-		allowed, containerID := aclsAPI.ValidateRequest(cluster, eventType, w, r)
+		isAllowed, containerID := aclsAPI.ValidateRequest(cluster, eventType, w, r)
 		//TODO - all kinds of conditionals
-		if eventType == passAsIs || allowed == approved || allowed == conditionFilter {
+		if eventType == states.PassAsIs || isAllowed == states.Approved || isAllowed == states.ConditionFilter {
 			authZAPI.HandleEvent(eventType, w, r, next, containerID)
 		} else {
 			w.WriteHeader(http.StatusUnauthorized)
@@ -43,40 +45,40 @@ func (*Hooks) PrePostAuthWrapper(cluster cluster.Cluster, next http.Handler) htt
 	})
 }
 
-func eventParse(r *http.Request) EventEnum {
+func eventParse(r *http.Request) states.EventEnum {
 	log.Debug("Got the uri...", r.RequestURI)
 
 	if strings.Contains(r.RequestURI, "/containers") && (strings.Contains(r.RequestURI, "create")) {
-		return containerCreate
+		return states.ContainerCreate
 	}
 
 	if strings.Contains(r.RequestURI, "/containers/json") {
-		return containersList
+		return states.ContainersList
 	}
 
 	if strings.Contains(r.RequestURI, "/containers") &&
 		(strings.Contains(r.RequestURI, "logs") || strings.Contains(r.RequestURI, "attach") || strings.Contains(r.RequestURI, "exec")) {
-		return streamOrHijack
+		return states.StreamOrHijack
 	}
 	if strings.Contains(r.RequestURI, "/containers") && strings.HasSuffix(r.RequestURI, "/json") {
-		return containerInspect
+		return states.ContainerInspect
 	}
 	if strings.Contains(r.RequestURI, "/containers") {
-		return containerOthers
+		return states.ContainerOthers
 	}
 
 	if strings.Contains(r.RequestURI, "Will add to here all APIs we explicitly want to block") {
-		return notSupported
+		return states.NotSupported
 	}
 
-	return passAsIs
+	return states.PassAsIs
 }
 
 //Init - Initialize the Validation and Handling APIs
 func (*Hooks) Init() {
 	//TODO - should use a map for all the Pre . Post function like in primary.go
-	
-	aclsAPI = new(DefaultACLsImpl)
+
+	aclsAPI = new(keystone.KeyStoneAPI)
 	aclsAPI.Init()
 	authZAPI = new(DefaultImp)
 	//TODO reflection using configuration file tring for the backend type

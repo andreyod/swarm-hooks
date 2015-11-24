@@ -8,6 +8,8 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/jeffail/gabs"
+	"github.com/docker/swarm/cluster"
+	"github.com/docker/swarm/pkg/authZ/states"
 )
 
 type KeyStoneAPI struct{}
@@ -15,6 +17,8 @@ type KeyStoneAPI struct{}
 var cacheAPI *Cache
 
 var configs *Configs
+
+
 
 func doHTTPreq(reqType, url, jsonBody string, headers map[string]string) *http.Response {
 	var req *http.Request = nil
@@ -59,9 +63,15 @@ func (*KeyStoneAPI) Init() error {
 // 1- Validate Token
 // 2- Get ACLs or Lable for your valid token
 
-func (*KeyStoneAPI) ValidateToken(token string, tenantId string) (bool, string) {
-	log.Info("Going to validate token: " + token)
-	log.Info("Going to validate tenantId: " + tenantId)
+var authZTokenHeaderName = "X-Auth-Token"
+var authZTenantIdHeaderName = "X-Auth-TenantId"
+
+func (*KeyStoneAPI) ValidateRequest(cluster cluster.Cluster, eventType states.EventEnum, w http.ResponseWriter, r *http.Request) (states.ApprovalEnum, string) {
+	
+	tokenToValidate := r.Header.Get(authZTokenHeaderName)
+	tenantIdToValidate := r.Header.Get(authZTenantIdHeaderName)
+	log.Info("Going to validate token: " + tokenToValidate)
+	log.Info("Going to validate tenantId: " + tenantIdToValidate)
 	
 	log.Info("Please set up the cache...")
 //	var tenantId string
@@ -72,9 +82,9 @@ func (*KeyStoneAPI) ValidateToken(token string, tenantId string) (bool, string) 
 //	}
 	
 	var headers = map[string]string{
-		"X-Auth-Token": token,
+		"X-Auth-Token": tokenToValidate,
 	}
-	token = strings.TrimSpace(token)
+	tokenToValidate = strings.TrimSpace(tokenToValidate)
 	resp := doHTTPreq("GET", configs.GetConf().KeystoneUrl+"tenants", "", headers)
 	defer resp.Body.Close()
 	log.Debug("response Status:", resp.Status)
@@ -82,19 +92,19 @@ func (*KeyStoneAPI) ValidateToken(token string, tenantId string) (bool, string) 
 	body, _ := ioutil.ReadAll(resp.Body)
 	log.Debug("response Body:", string(body))
 	if 200 != resp.StatusCode {
-		return false, "Invalid user token"
+		return states.NotApproved, "Invalid user token"
 	}
 	log.Info("Valid user token!")
 	jsonParsed, _ := gabs.ParseJSON(body)
 	children, _ := jsonParsed.S("tenants").Children()
 	//tenantId = children[i].Path("id").Data().(string)
 	for i := 0; i < len(children); i++ {		
-		if children[i].Path("id").Data().(string) == tenantId {
+		if children[i].Path("id").Data().(string) == tenantIdToValidate {
 			log.Info("tenantId Found: ")
-			return true, tenantId
+			return states.Approved, tenantIdToValidate
 		}
 	}
 	log.Info("tenantId not Found: ")
 	//log.Info(tenantId)
-	return false, ""
+	return states.NotApproved, ""
 }

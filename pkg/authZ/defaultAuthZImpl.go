@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 
 	log "github.com/Sirupsen/logrus"
+	"github.com/docker/swarm/pkg/authZ/states"
 	"github.com/gorilla/mux"
 )
 
@@ -24,22 +25,22 @@ func (*DefaultImp) Init() error {
 }
 
 //HandleEvent - Implement approved operation - Default labels based implmentation
-func (*DefaultImp) HandleEvent(eventType EventEnum, w http.ResponseWriter, r *http.Request, next http.Handler, containerID string) {
+func (*DefaultImp) HandleEvent(eventType states.EventEnum, w http.ResponseWriter, r *http.Request, next http.Handler, containerID string) {
 	switch eventType {
-	case containerCreate:
+	case states.ContainerCreate:
 		log.Debug("In create...")
 		defer r.Body.Close()
 		reqBody, _ := ioutil.ReadAll(r.Body)
 		log.Debug("Old body: " + string(reqBody))
 
 		//TODO - Here we just use the token for the tenant name for now
-		newBody := bytes.Replace(reqBody, []byte("{"), []byte("{\"Labels\": {\""+tenancyLabel+"\":\""+r.Header.Get(authZTenantIdHeaderName)+"\"},"), 1)
+		newBody := bytes.Replace(reqBody, []byte("{"), []byte("{\"Labels\": {\""+TenancyLabel+"\":\""+r.Header.Get(AuthZTenantIdHeaderName)+"\"},"), 1)
 		log.Debug("New body: " + string(newBody))
 
 		var newQuery string
 		if "" != r.URL.Query().Get("name") {
 			log.Debug("Postfixing name with Label...")
-			newQuery = strings.Replace(r.RequestURI, r.URL.Query().Get("name"), r.URL.Query().Get("name")+r.Header.Get(authZTenantIdHeaderName), 1)
+			newQuery = strings.Replace(r.RequestURI, r.URL.Query().Get("name"), r.URL.Query().Get("name")+r.Header.Get(AuthZTenantIdHeaderName), 1)
 			log.Debug(newQuery)
 		}
 
@@ -49,7 +50,7 @@ func (*DefaultImp) HandleEvent(eventType EventEnum, w http.ResponseWriter, r *ht
 		}
 		next.ServeHTTP(w, newReq)
 
-	case containerInspect:
+	case states.ContainerInspect:
 		log.Debug("In inspect...")
 		rec := httptest.NewRecorder()
 
@@ -65,10 +66,10 @@ func (*DefaultImp) HandleEvent(eventType EventEnum, w http.ResponseWriter, r *ht
 		newBody := cleanUpLabeling(r, rec)
 		w.Write(newBody)
 
-	case containersList:
+	case states.ContainersList:
 		log.Debug("In list...")
 		var v = url.Values{}
-		mapS := map[string][]string{"label": {tenancyLabel + "=" + r.Header.Get(authZTenantIdHeaderName)}}
+		mapS := map[string][]string{"label": {TenancyLabel + "=" + r.Header.Get(AuthZTenantIdHeaderName)}}
 		filterJSON, _ := json.Marshal(mapS)
 		v.Set("filters", string(filterJSON))
 		var newQuery string
@@ -98,7 +99,7 @@ func (*DefaultImp) HandleEvent(eventType EventEnum, w http.ResponseWriter, r *ht
 
 		w.Write(newBody)
 
-	case containerOthers:
+	case states.ContainerOthers:
 		log.Debug("In others...")
 		r.URL.Path = strings.Replace(r.URL.Path, mux.Vars(r)["name"], containerID, 1)
 		mux.Vars(r)["name"] = containerID
@@ -106,16 +107,16 @@ func (*DefaultImp) HandleEvent(eventType EventEnum, w http.ResponseWriter, r *ht
 		next.ServeHTTP(w, r)
 
 		//TODO - hijack and others are the same because we handle no post and no stream manipulation and no handler override yet
-	case streamOrHijack:
+	case states.StreamOrHijack:
 		log.Debug("In stream/hijack...")
 		r.URL.Path = strings.Replace(r.URL.Path, mux.Vars(r)["name"], containerID, 1)
 		mux.Vars(r)["name"] = containerID
 		next.ServeHTTP(w, r)
 
-	case passAsIs:
+	case states.PassAsIs:
 		log.Debug("Forwarding the request AS IS...")
 		next.ServeHTTP(w, r)
-	case unauthorized:
+	case states.Unauthorized:
 		log.Debug("In UNAUTHORIZED...")
 	default:
 		log.Debug("In default...")

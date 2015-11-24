@@ -6,74 +6,48 @@ import (
 	//	"fmt"
 	"net/http"
 
-	log "github.com/Sirupsen/logrus"
-	//	"github.com/docker/swarm/cluster/swarm"
-
-	"github.com/docker/swarm/pkg/authZ/keystone"
-
 	"github.com/docker/swarm/cluster"
-
 	//	"github.com/docker/swarm/cluster/swarm"
 
+	"github.com/docker/swarm/pkg/authZ/states"
+	//	"github.com/docker/swarm/cluster/swarm"
 )
 
 //DefaultACLsImpl - Default implementation of ACLs API
 type DefaultACLsImpl struct{}
 
-var authZTokenHeaderName = "X-Auth-Token"
-var authZTenantIdHeaderName = "X-Auth-TenantId"
-var tenancyLabel = "com.swarm.tenant.0"
-
-var keyStoneAPI keystone.KeyStoneAPI
+var AuthZTokenHeaderName = "X-Auth-Token"
+var AuthZTenantIdHeaderName = "X-Auth-TenantId"
+var TenancyLabel = "com.swarm.tenant.0"
 
 /*
 ValidateRequest - Who wants to do what - allow or not
 */
-func (*DefaultACLsImpl) ValidateRequest(cluster cluster.Cluster, eventType EventEnum, w http.ResponseWriter, r *http.Request) (ApprovalEnum, string) {
-	tokenToValidate := r.Header.Get(authZTokenHeaderName)
-	tenantIdToValidate := r.Header.Get(authZTenantIdHeaderName)
-	log.Debug("tenantIdToValidate is " + tenantIdToValidate)
+func (*DefaultACLsImpl) ValidateRequest(cluster cluster.Cluster, eventType states.EventEnum, w http.ResponseWriter, r *http.Request) (states.ApprovalEnum, string) {
+	tokenToValidate := r.Header.Get(AuthZTokenHeaderName)
 
 	if tokenToValidate == "" {
-		return notApproved, ""
+		return states.NotApproved, ""
 	}
-
-	if tenantIdToValidate == "" {
-		return notApproved, ""
-	}
-
-	tokenAuthorized, tenantId := keyStoneAPI.ValidateToken(tokenToValidate, tenantIdToValidate)
-	if !tokenAuthorized {
-		log.Debug("token not authorized or tenantId not associated with token")
-		return notApproved, ""
-	}
-	log.Debug("tenantId is " + tenantId)
-
 	//TODO - Duplication revise
 	switch eventType {
-
-	case containerCreate:
-		log.Debug("case containerCreate ")
-
-		return approved, ""
-	case containersList:
-		log.Debug("case containersList ")
-		return conditionFilter, ""
+	case states.ContainerCreate:
+		return states.Approved, ""
+	case states.ContainersList:
+		return states.ConditionFilter, ""
+	case states.Unauthorized:
+		return states.NotApproved, ""
 	default:
-		log.Debug("case default ")
 		//CONTAINER_INSPECT / CONTAINER_OTHERS / STREAM_OR_HIJACK / PASS_AS_IS
-		isOwner, id := checkOwnerShip(cluster, tenantIdToValidate, r)
+		isOwner, id := checkOwnerShip(cluster, tokenToValidate, r)
 		if isOwner {
-			return approved, id
+			return states.Approved, id
 		}
 	}
-	return notApproved, ""
+	return states.NotApproved, ""
 }
 
 //Init - Any required initialization
 func (*DefaultACLsImpl) Init() error {
-	//This is the keyStone version...
-	keyStoneAPI := new(keystone.KeyStoneAPI)
-	keyStoneAPI.Init()
 	return nil
 }
