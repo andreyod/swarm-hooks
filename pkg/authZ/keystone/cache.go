@@ -1,9 +1,6 @@
 package keystone
 
-import (
-
 //	"github.com/garyburd/redigo/redis"
-)
 
 type Cache struct{}
 
@@ -33,7 +30,7 @@ func (*Cache) PutEx(key, val string, ex int64) {
 	//	log.Println(response)
 }
 
-func newPool() {//*redis.Pool {
+func newPool() { //*redis.Pool {
 	//	return &redis.Pool{
 	//		MaxIdle:   80,
 	//		MaxActive: 12000, // max number of connections
@@ -51,12 +48,12 @@ func newPool() {//*redis.Pool {
 }
 
 func (*Cache) Init() {
-//	c := pool.Get()
-//	defer c.Close()
-//	test, err := c.Do("HGETALL", "test:1")
-//	if err != nil {
-//		log.Println("Seems redis is not reachable")
-//	}
+	//	c := pool.Get()
+	//	defer c.Close()
+	//	test, err := c.Do("HGETALL", "test:1")
+	//	if err != nil {
+	//		log.Println("Seems redis is not reachable")
+	//	}
 
-//	log.Println(test)
+	//	log.Println(test)
 }

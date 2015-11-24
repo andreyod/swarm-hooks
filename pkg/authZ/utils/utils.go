@@ -15,8 +15,8 @@ import (
 
 	"github.com/docker/swarm/cluster"
 
-	"github.com/gorilla/mux"
 	"github.com/docker/swarm/pkg/authZ/headers"
+	"github.com/gorilla/mux"
 )
 
 //UTILS

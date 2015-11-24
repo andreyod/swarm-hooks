@@ -22,4 +22,5 @@ const (
 	NotApproved
 	ConditionFilter
 	ConditionOverride
+	Admin
 )

@@ -12,10 +12,10 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/docker/swarm/pkg/authZ/states"
-//	"github.com/docker/swarm/pkg/authZ/keystone"
-	"github.com/gorilla/mux"
+	//	"github.com/docker/swarm/pkg/authZ/keystone"
 	"github.com/docker/swarm/pkg/authZ/headers"
 	"github.com/docker/swarm/pkg/authZ/utils"
+	"github.com/gorilla/mux"
 )
 
 //DefaultImp - Default basic label based implementation of ACLs & tenancy enforcment

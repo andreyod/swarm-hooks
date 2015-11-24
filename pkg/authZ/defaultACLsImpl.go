@@ -11,14 +11,12 @@ import (
 
 	"github.com/docker/swarm/pkg/authZ/states"
 	//	"github.com/docker/swarm/cluster/swarm"
-	"github.com/docker/swarm/pkg/authZ/utils"
 	"github.com/docker/swarm/pkg/authZ/headers"
+	"github.com/docker/swarm/pkg/authZ/utils"
 )
 
 //DefaultACLsImpl - Default implementation of ACLs API
 type DefaultACLsImpl struct{}
-
-
 
 /*
 ValidateRequest - Who wants to do what - allow or not

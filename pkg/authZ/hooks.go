@@ -35,6 +35,10 @@ func (*Hooks) PrePostAuthWrapper(cluster cluster.Cluster, next http.Handler) htt
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		eventType := eventParse(r)
 		isAllowed, containerID := aclsAPI.ValidateRequest(cluster, eventType, w, r)
+		if isAllowed == states.Admin {
+			next.ServeHTTP(w, r)
+			return
+		}
 		//TODO - all kinds of conditionals
 		if eventType == states.PassAsIs || isAllowed == states.Approved || isAllowed == states.ConditionFilter {
 			authZAPI.HandleEvent(eventType, w, r, next, containerID)

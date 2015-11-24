@@ -9,10 +9,10 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/docker/swarm/cluster"
 	"github.com/docker/swarm/pkg/authZ/states"
-//	"github.com/docker/swarm/pkg/authZ"
-	"github.com/jeffail/gabs"
-	"github.com/docker/swarm/pkg/authZ/utils"
+	//	"github.com/docker/swarm/pkg/authZ"
 	"github.com/docker/swarm/pkg/authZ/headers"
+	"github.com/docker/swarm/pkg/authZ/utils"
+	"github.com/jeffail/gabs"
 )
 
 type KeyStoneAPI struct{}
@@ -64,8 +64,6 @@ func (*KeyStoneAPI) Init() error {
 // 1- Validate Token
 // 2- Get ACLs or Lable for your valid token
 
-
-
 func (*KeyStoneAPI) ValidateRequest(cluster cluster.Cluster, eventType states.EventEnum, w http.ResponseWriter, r *http.Request) (states.ApprovalEnum, string) {
 
 	tokenToValidate := r.Header.Get(headers.AuthZTokenHeaderName)
@@ -94,6 +92,10 @@ func (*KeyStoneAPI) ValidateRequest(cluster cluster.Cluster, eventType states.Ev
 	//tenantId = children[i].Path("id").Data().(string)
 	for i := 0; i < len(children); i++ {
 		if children[i].Path("id").Data().(string) == tenantIdToValidate {
+
+			if isAdminTenant(tenantIdToValidate) {
+				return states.Admin, ""
+			}
 			log.Info("tenantId Found: ")
 			//TODO - maybe extract code?
 			switch eventType {
@@ -116,4 +118,9 @@ func (*KeyStoneAPI) ValidateRequest(cluster cluster.Cluster, eventType states.Ev
 	log.Info("tenantId not Found: ")
 	//log.Info(tenantId)
 	return states.NotApproved, ""
+}
+
+func isAdminTenant(tenantIdToValidate string) bool {
+	//Kenneth - Determine who is admin using keystone...
+	return false
 }
