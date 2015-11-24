@@ -7,9 +7,12 @@ import (
 	"strings"
 
 	log "github.com/Sirupsen/logrus"
-	"github.com/jeffail/gabs"
 	"github.com/docker/swarm/cluster"
 	"github.com/docker/swarm/pkg/authZ/states"
+//	"github.com/docker/swarm/pkg/authZ"
+	"github.com/jeffail/gabs"
+	"github.com/docker/swarm/pkg/authZ/utils"
+	"github.com/docker/swarm/pkg/authZ/headers"
 )
 
 type KeyStoneAPI struct{}
@@ -17,8 +20,6 @@ type KeyStoneAPI struct{}
 var cacheAPI *Cache
 
 var configs *Configs
-
-
 
 func doHTTPreq(reqType, url, jsonBody string, headers map[string]string) *http.Response {
 	var req *http.Request = nil
@@ -63,24 +64,17 @@ func (*KeyStoneAPI) Init() error {
 // 1- Validate Token
 // 2- Get ACLs or Lable for your valid token
 
-var authZTokenHeaderName = "X-Auth-Token"
-var authZTenantIdHeaderName = "X-Auth-TenantId"
+
 
 func (*KeyStoneAPI) ValidateRequest(cluster cluster.Cluster, eventType states.EventEnum, w http.ResponseWriter, r *http.Request) (states.ApprovalEnum, string) {
-	
-	tokenToValidate := r.Header.Get(authZTokenHeaderName)
-	tenantIdToValidate := r.Header.Get(authZTenantIdHeaderName)
+
+	tokenToValidate := r.Header.Get(headers.AuthZTokenHeaderName)
+	tenantIdToValidate := r.Header.Get(headers.AuthZTenantIdHeaderName)
 	log.Info("Going to validate token: " + tokenToValidate)
 	log.Info("Going to validate tenantId: " + tenantIdToValidate)
-	
+
 	log.Info("Please set up the cache...")
-//	var tenantId string
-//	log.Info("Checking cache...")
-//	tenantId := cacheAPI.Get(token)
-//	if tenantId != "" {
-//		return true, tenantId
-//	}
-	
+
 	var headers = map[string]string{
 		"X-Auth-Token": tokenToValidate,
 	}
@@ -98,9 +92,24 @@ func (*KeyStoneAPI) ValidateRequest(cluster cluster.Cluster, eventType states.Ev
 	jsonParsed, _ := gabs.ParseJSON(body)
 	children, _ := jsonParsed.S("tenants").Children()
 	//tenantId = children[i].Path("id").Data().(string)
-	for i := 0; i < len(children); i++ {		
+	for i := 0; i < len(children); i++ {
 		if children[i].Path("id").Data().(string) == tenantIdToValidate {
 			log.Info("tenantId Found: ")
+			//TODO - maybe extract code?
+			switch eventType {
+			case states.ContainerCreate:
+				return states.Approved, ""
+			case states.ContainersList:
+				return states.ConditionFilter, ""
+			case states.Unauthorized:
+				return states.NotApproved, ""
+			default:
+				//CONTAINER_INSPECT / CONTAINER_OTHERS / STREAM_OR_HIJACK / PASS_AS_IS
+				isOwner, id := utils.CheckOwnerShip(cluster, tenantIdToValidate, r)
+				if isOwner {
+					return states.Approved, id
+				}
+			}
 			return states.Approved, tenantIdToValidate
 		}
 	}

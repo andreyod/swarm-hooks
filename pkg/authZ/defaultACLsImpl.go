@@ -11,20 +11,20 @@ import (
 
 	"github.com/docker/swarm/pkg/authZ/states"
 	//	"github.com/docker/swarm/cluster/swarm"
+	"github.com/docker/swarm/pkg/authZ/utils"
+	"github.com/docker/swarm/pkg/authZ/headers"
 )
 
 //DefaultACLsImpl - Default implementation of ACLs API
 type DefaultACLsImpl struct{}
 
-var AuthZTokenHeaderName = "X-Auth-Token"
-var AuthZTenantIdHeaderName = "X-Auth-TenantId"
-var TenancyLabel = "com.swarm.tenant.0"
+
 
 /*
 ValidateRequest - Who wants to do what - allow or not
 */
 func (*DefaultACLsImpl) ValidateRequest(cluster cluster.Cluster, eventType states.EventEnum, w http.ResponseWriter, r *http.Request) (states.ApprovalEnum, string) {
-	tokenToValidate := r.Header.Get(AuthZTokenHeaderName)
+	tokenToValidate := r.Header.Get(headers.AuthZTokenHeaderName)
 
 	if tokenToValidate == "" {
 		return states.NotApproved, ""
@@ -39,7 +39,7 @@ func (*DefaultACLsImpl) ValidateRequest(cluster cluster.Cluster, eventType state
 		return states.NotApproved, ""
 	default:
 		//CONTAINER_INSPECT / CONTAINER_OTHERS / STREAM_OR_HIJACK / PASS_AS_IS
-		isOwner, id := checkOwnerShip(cluster, tokenToValidate, r)
+		isOwner, id := utils.CheckOwnerShip(cluster, tokenToValidate, r)
 		if isOwner {
 			return states.Approved, id
 		}

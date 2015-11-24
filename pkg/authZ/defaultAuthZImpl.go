@@ -12,7 +12,10 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/docker/swarm/pkg/authZ/states"
+//	"github.com/docker/swarm/pkg/authZ/keystone"
 	"github.com/gorilla/mux"
+	"github.com/docker/swarm/pkg/authZ/headers"
+	"github.com/docker/swarm/pkg/authZ/utils"
 )
 
 //DefaultImp - Default basic label based implementation of ACLs & tenancy enforcment
@@ -34,17 +37,17 @@ func (*DefaultImp) HandleEvent(eventType states.EventEnum, w http.ResponseWriter
 		log.Debug("Old body: " + string(reqBody))
 
 		//TODO - Here we just use the token for the tenant name for now
-		newBody := bytes.Replace(reqBody, []byte("{"), []byte("{\"Labels\": {\""+TenancyLabel+"\":\""+r.Header.Get(AuthZTenantIdHeaderName)+"\"},"), 1)
+		newBody := bytes.Replace(reqBody, []byte("{"), []byte("{\"Labels\": {\""+headers.TenancyLabel+"\":\""+r.Header.Get(headers.AuthZTenantIdHeaderName)+"\"},"), 1)
 		log.Debug("New body: " + string(newBody))
 
 		var newQuery string
 		if "" != r.URL.Query().Get("name") {
 			log.Debug("Postfixing name with Label...")
-			newQuery = strings.Replace(r.RequestURI, r.URL.Query().Get("name"), r.URL.Query().Get("name")+r.Header.Get(AuthZTenantIdHeaderName), 1)
+			newQuery = strings.Replace(r.RequestURI, r.URL.Query().Get("name"), r.URL.Query().Get("name")+r.Header.Get(headers.AuthZTenantIdHeaderName), 1)
 			log.Debug(newQuery)
 		}
 
-		newReq, e1 := modifyRequest(r, bytes.NewReader(newBody), newQuery, "")
+		newReq, e1 := utils.ModifyRequest(r, bytes.NewReader(newBody), newQuery, "")
 		if e1 != nil {
 			log.Error(e1)
 		}
@@ -63,13 +66,13 @@ func (*DefaultImp) HandleEvent(eventType states.EventEnum, w http.ResponseWriter
 		for k, v := range rec.Header() {
 			w.Header()[k] = v
 		}
-		newBody := cleanUpLabeling(r, rec)
+		newBody := utils.CleanUpLabeling(r, rec)
 		w.Write(newBody)
 
 	case states.ContainersList:
 		log.Debug("In list...")
 		var v = url.Values{}
-		mapS := map[string][]string{"label": {TenancyLabel + "=" + r.Header.Get(AuthZTenantIdHeaderName)}}
+		mapS := map[string][]string{"label": {headers.TenancyLabel + "=" + r.Header.Get(headers.AuthZTenantIdHeaderName)}}
 		filterJSON, _ := json.Marshal(mapS)
 		v.Set("filters", string(filterJSON))
 		var newQuery string
@@ -80,7 +83,7 @@ func (*DefaultImp) HandleEvent(eventType states.EventEnum, w http.ResponseWriter
 		}
 		log.Debug("New Query: ", newQuery)
 
-		newReq, e1 := modifyRequest(r, nil, newQuery, containerID)
+		newReq, e1 := utils.ModifyRequest(r, nil, newQuery, containerID)
 		if e1 != nil {
 			log.Error(e1)
 		}
@@ -95,7 +98,7 @@ func (*DefaultImp) HandleEvent(eventType states.EventEnum, w http.ResponseWriter
 			w.Header()[k] = v
 		}
 
-		newBody := cleanUpLabeling(r, rec)
+		newBody := utils.CleanUpLabeling(r, rec)
 
 		w.Write(newBody)
 

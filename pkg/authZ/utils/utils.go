@@ -1,4 +1,4 @@
-package authZ
+package utils
 
 import (
 	"bytes"
@@ -16,11 +16,12 @@ import (
 	"github.com/docker/swarm/cluster"
 
 	"github.com/gorilla/mux"
+	"github.com/docker/swarm/pkg/authZ/headers"
 )
 
 //UTILS
 
-func modifyRequest(r *http.Request, body io.Reader, urlStr string, containerID string) (*http.Request, error) {
+func ModifyRequest(r *http.Request, body io.Reader, urlStr string, containerID string) (*http.Request, error) {
 
 	rc, ok := body.(io.ReadCloser)
 	if !ok && body != nil {
@@ -41,7 +42,7 @@ func modifyRequest(r *http.Request, body io.Reader, urlStr string, containerID s
 }
 
 //TODO - Pass by ref ?
-func checkOwnerShip(cluster cluster.Cluster, tenantName string, r *http.Request) (bool, string) {
+func CheckOwnerShip(cluster cluster.Cluster, tenantName string, r *http.Request) (bool, string) {
 	containers := cluster.Containers()
 	log.Debug("got name: ", mux.Vars(r)["name"])
 	tenantSet := make(map[string]bool)
@@ -52,14 +53,14 @@ func checkOwnerShip(cluster cluster.Cluster, tenantName string, r *http.Request)
 		} else if mux.Vars(r)["name"] == container.Info.Id {
 			log.Debug("Match By full ID! Checking Ownership...")
 			log.Debug("Tenant name: ", tenantName)
-			log.Debug("Tenant Lable: ", container.Labels[TenancyLabel])
-			if container.Labels[TenancyLabel] == tenantName {
+			log.Debug("Tenant Lable: ", container.Labels[headers.TenancyLabel])
+			if container.Labels[headers.TenancyLabel] == tenantName {
 				return true, container.Info.Id
 			}
 			return false, ""
 
 		}
-		if container.Labels[TenancyLabel] == tenantName {
+		if container.Labels[headers.TenancyLabel] == tenantName {
 			tenantSet[container.Id] = true
 		}
 	}
@@ -88,10 +89,10 @@ func checkOwnerShip(cluster cluster.Cluster, tenantName string, r *http.Request)
 	return false, ""
 }
 
-func cleanUpLabeling(r *http.Request, rec *httptest.ResponseRecorder) []byte {
-	newBody := bytes.Replace(rec.Body.Bytes(), []byte(TenancyLabel), []byte(" "), -1)
+func CleanUpLabeling(r *http.Request, rec *httptest.ResponseRecorder) []byte {
+	newBody := bytes.Replace(rec.Body.Bytes(), []byte(headers.TenancyLabel), []byte(" "), -1)
 	//TODO - Here we just use the token for the tenant name for now so we remove it from the data before returning to user.
-	newBody = bytes.Replace(newBody, []byte(r.Header.Get(AuthZTenantIdHeaderName)), []byte(" "), -1)
+	newBody = bytes.Replace(newBody, []byte(r.Header.Get(headers.AuthZTenantIdHeaderName)), []byte(" "), -1)
 	newBody = bytes.Replace(newBody, []byte(",\" \":\" \""), []byte(""), -1)
 	log.Debug("Got this new body...", string(newBody))
 	return newBody
