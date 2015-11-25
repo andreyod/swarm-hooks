@@ -49,6 +49,10 @@ func checkOwnerShip(cluster cluster.Cluster, tenantName string, r *http.Request)
 		if "/"+mux.Vars(r)["name"]+tenantName == container.Info.Name {
 			log.Debug("Match By name!")
 			return true, container.Info.Id
+		} else if "/"+mux.Vars(r)["name"] == container.Info.Name {
+			if container.Labels[tenancyLabel] == tenantName {
+				return true, container.Info.Id
+			}
 		} else if mux.Vars(r)["name"] == container.Info.Id {
 			log.Debug("Match By full ID! Checking Ownership...")
 			log.Debug("Tenant name: ", tenantName)
