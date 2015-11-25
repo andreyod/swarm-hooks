@@ -37,6 +37,15 @@ setup() {
 	[ ${#Response} -eq 4 ]
 }
 
+@test "Testing useage of auto generated names..." {
+	Name=$(curl -H "X-Auth-Token:$UserToken" $SwarmNode/containers/$ContainerId/json | jq -r '.Name')
+	Status=$(curl -H "X-Auth-Token:$UserToken" $SwarmNode/containers$Name/json | jq -r '.State.Status')
+        echo $Status
+        [ "$Status" == "running" ]
+
+}
+
+
 
 
 
