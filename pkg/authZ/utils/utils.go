@@ -12,8 +12,8 @@ import (
 	"net/http/httptest"
 
 	log "github.com/Sirupsen/logrus"
-
 	"github.com/docker/swarm/cluster"
+
 
 	"github.com/docker/swarm/pkg/authZ/headers"
 	"github.com/gorilla/mux"
@@ -51,7 +51,7 @@ func CheckOwnerShip(cluster cluster.Cluster, tenantName string, r *http.Request)
 			log.Debug("Match By name!")
 			return true, container.Info.Id
 		} else if "/"+mux.Vars(r)["name"] == container.Info.Name {
-			if container.Labels[tenancyLabel] == tenantName {
+			if container.Labels[headers.TenancyLabel] == tenantName {
 				return true, container.Info.Id
 			}
 		} else if mux.Vars(r)["name"] == container.Info.Id {
