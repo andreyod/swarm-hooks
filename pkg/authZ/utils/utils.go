@@ -12,8 +12,8 @@ import (
 	"net/http/httptest"
 
 	log "github.com/Sirupsen/logrus"
-
 	"github.com/docker/swarm/cluster"
+
 
 	"github.com/docker/swarm/pkg/authZ/headers"
 	"github.com/gorilla/mux"
