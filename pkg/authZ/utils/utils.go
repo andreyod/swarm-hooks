@@ -17,6 +17,8 @@ import (
 
 	"github.com/docker/swarm/pkg/authZ/headers"
 	"github.com/gorilla/mux"
+	"github.com/jeffail/gabs"
+	"strconv"
 )
 
 //UTILS
@@ -51,7 +53,7 @@ func CheckOwnerShip(cluster cluster.Cluster, tenantName string, r *http.Request)
 			log.Debug("Match By name!")
 			return true, container.Info.Id
 		} else if "/"+mux.Vars(r)["name"] == container.Info.Name {
-			if container.Labels[tenancyLabel] == tenantName {
+			if container.Labels[headers.TenancyLabel] == tenantName {
 				return true, container.Info.Id
 			}
 		} else if mux.Vars(r)["name"] == container.Info.Id {
@@ -100,4 +102,28 @@ func CleanUpLabeling(r *http.Request, rec *httptest.ResponseRecorder) []byte {
 	newBody = bytes.Replace(newBody, []byte(",\" \":\" \""), []byte(""), -1)
 	log.Debug("Got this new body...", string(newBody))
 	return newBody
+}
+
+func ParseField(field string, fieldType interface{}, body []byte) interface{} {
+	log.Debugf("In parseField, field: %s Request body: $s", field, string(body))
+	jsonParsed, err := gabs.ParseJSON(body)
+	if err != nil {
+		log.Error("failed to parse!")
+		return nil
+	}
+
+	switch v := fieldType.(type) {
+        case float64:
+			log.Debug("Parsing type: ", v)
+			parsedField, ok := jsonParsed.Path(field).Data().(float64)
+			if ok{
+				res := strconv.FormatFloat(parsedField, 'f', -1, 64)
+				log.Debugf("Parsed field: " + res)
+				return parsedField
+			}
+        default:
+			log.Error("Unknown field typte to parse")
+	}
+
+	return nil
 }

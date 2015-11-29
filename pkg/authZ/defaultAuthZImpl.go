@@ -16,6 +16,9 @@ import (
 	"github.com/docker/swarm/pkg/authZ/headers"
 	"github.com/docker/swarm/pkg/authZ/utils"
 	"github.com/gorilla/mux"
+	"github.com/docker/swarm/pkg/authZ/keystone"
+	"github.com/docker/swarm/cluster"
+	"strconv"
 )
 
 //DefaultImp - Default basic label based implementation of ACLs & tenancy enforcment
@@ -27,13 +30,31 @@ func (*DefaultImp) Init() error {
 	return nil
 }
 
+func validateQuota(cluster cluster.Cluster, reqBody []byte, tenant string) bool {
+	log.Info("Going to validate quota")
+	var quotaAPI keystone.QuotaAPI = new(keystone.QuotaImpl)
+	log.Debug("Parsing requiered memory field")
+	var fieldType float64
+	var memory float64 = utils.ParseField("HostConfig.Memory", fieldType, reqBody).(float64)
+	log.Debug("Memory field: ", strconv.FormatFloat(memory, 'f', -1, 64))
+
+	return quotaAPI.ValidateQuota(cluster, tenant, memory)
+}
+
 //HandleEvent - Implement approved operation - Default labels based implmentation
-func (*DefaultImp) HandleEvent(eventType states.EventEnum, w http.ResponseWriter, r *http.Request, next http.Handler, containerID string) {
+func (*DefaultImp) HandleEvent(eventType states.EventEnum, w http.ResponseWriter, r *http.Request, next http.Handler, containerID string, cluster cluster.Cluster) {
 	switch eventType {
 	case states.ContainerCreate:
 		log.Debug("In create...")
 		defer r.Body.Close()
 		reqBody, _ := ioutil.ReadAll(r.Body)
+
+		if !validateQuota(cluster, reqBody, r.Header.Get(headers.AuthZTenantIdHeaderName)){
+			w.WriteHeader(http.StatusUnauthorized)
+			w.Write([]byte("Tenant quota limit reached!"))
+			return
+		}
+
 		log.Debug("Old body: " + string(reqBody))
 
 		//TODO - Here we just use the token for the tenant name for now

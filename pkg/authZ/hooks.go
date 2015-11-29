@@ -42,7 +42,7 @@ func (*Hooks) PrePostAuthWrapper(cluster cluster.Cluster, next http.Handler) htt
 		}
 		//TODO - all kinds of conditionals
 		if eventType == states.PassAsIs || isAllowed == states.Approved || isAllowed == states.ConditionFilter {
-			authZAPI.HandleEvent(eventType, w, r, next, containerID)
+			authZAPI.HandleEvent(eventType, w, r, next, containerID, cluster)
 		} else {
 			w.WriteHeader(http.StatusUnauthorized)
 			w.Write([]byte("Not Authorized!"))
