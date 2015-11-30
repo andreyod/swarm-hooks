@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#KEYSTONE_IP='cloud.lab.fi-ware.org:4730'
+KEYSTONE_IP='cloud.lab.fi-ware.org:4730'
 
 DOCKER_CONF=~/.docker/config.json   #default file is docker-compose config file
 
