@@ -19,6 +19,8 @@ import (
 	"github.com/docker/swarm/pkg/authZ/keystone"
 	"github.com/docker/swarm/cluster"
 	"strconv"
+	"fmt"
+	"errors"
 )
 
 //DefaultImp - Default basic label based implementation of ACLs & tenancy enforcment
@@ -29,14 +31,22 @@ type DefaultImp struct{
 //Init - Any required initialization
 func (this *DefaultImp) Init() error {
 	this.quotaAPI = new(keystone.QuotaImpl)
+	this.quotaAPI.Init()
+
 	return nil
 }
 
-func (this *DefaultImp) validateQuota(cluster cluster.Cluster, reqBody []byte, tenant string) bool {
+func (this *DefaultImp) validateQuota(cluster cluster.Cluster, reqBody []byte, tenant string) error {
 	log.Info("Going to validate quota")
 	log.Debug("Parsing requiered memory field")
 	var fieldType float64
-	var memory float64 = utils.ParseField("HostConfig.Memory", fieldType, reqBody).(float64)
+	res, err := utils.ParseField("HostConfig.Memory", fieldType, reqBody)
+	if err != nil{
+		log.Error("Failed to parse mandatory memory limit in container config")
+		return errors.New("Failed to parse mandatory memory limit from container config")
+	}
+
+	memory := res.(float64)
 	log.Debug("Memory field: ", strconv.FormatFloat(memory, 'f', -1, 64))
 
 	return this.quotaAPI.ValidateQuota(cluster, tenant, memory)
@@ -50,9 +60,10 @@ func (this *DefaultImp) HandleEvent(eventType states.EventEnum, w http.ResponseW
 		defer r.Body.Close()
 		reqBody, _ := ioutil.ReadAll(r.Body)
 
-		if !this.validateQuota(cluster, reqBody, r.Header.Get(headers.AuthZTenantIdHeaderName)){
+		err := this.validateQuota(cluster, reqBody, r.Header.Get(headers.AuthZTenantIdHeaderName))
+		if err != nil{
 			w.WriteHeader(http.StatusUnauthorized)
-			w.Write([]byte("Tenant quota limit reached!"))
+			w.Write([]byte(fmt.Sprintf("%v", err)))
 			return
 		}
 

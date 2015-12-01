@@ -6,6 +6,8 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"errors"
+	"fmt"
 
 	"strings"
 
@@ -104,12 +106,12 @@ func CleanUpLabeling(r *http.Request, rec *httptest.ResponseRecorder) []byte {
 	return newBody
 }
 
-func ParseField(field string, fieldType interface{}, body []byte) interface{} {
-	log.Debugf("In parseField, field: %s Request body: $s", field, string(body))
+func ParseField(field string, fieldType interface{}, body []byte) (interface{}, error) {
+	log.Debugf("In parseField, field: %s Request body: %s", field, string(body))
 	jsonParsed, err := gabs.ParseJSON(body)
 	if err != nil {
 		log.Error("failed to parse!")
-		return nil
+		return nil, err
 	}
 
 	switch v := fieldType.(type) {
@@ -119,11 +121,11 @@ func ParseField(field string, fieldType interface{}, body []byte) interface{} {
 			if ok{
 				res := strconv.FormatFloat(parsedField, 'f', -1, 64)
 				log.Debugf("Parsed field: " + res)
-				return parsedField
+				return parsedField, nil
 			}
         default:
-			log.Error("Unknown field typte to parse")
+			log.Error("Unknown field type to parse")
 	}
 
-	return nil
+	return nil, errors.New(fmt.Sprintf("failed to parse field %s from request body %s", field, string(body)))
 }
