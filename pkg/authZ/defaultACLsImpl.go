@@ -21,7 +21,7 @@ type DefaultACLsImpl struct{}
 /*
 ValidateRequest - Who wants to do what - allow or not
 */
-func (*DefaultACLsImpl) ValidateRequest(cluster cluster.Cluster, eventType states.EventEnum, w http.ResponseWriter, r *http.Request) (states.ApprovalEnum, string) {
+func (*DefaultACLsImpl) ValidateRequest(cluster cluster.Cluster, eventType states.EventEnum, w http.ResponseWriter, r *http.Request, reqBody []byte) (states.ApprovalEnum, string) {
 	tokenToValidate := r.Header.Get(headers.AuthZTokenHeaderName)
 
 	if tokenToValidate == "" {

@@ -13,9 +13,12 @@ import (
 	"github.com/docker/swarm/pkg/authZ/headers"
 	"github.com/docker/swarm/pkg/authZ/utils"
 	"github.com/jeffail/gabs"
+	"strconv"
+	"fmt"
+	"errors"
 )
 
-type KeyStoneAPI struct{}
+type KeyStoneAPI struct{quotaAPI QuotaAPI}
 
 var cacheAPI *Cache
 
@@ -52,11 +55,13 @@ type TokenResponseData struct {
 	id        string
 }
 
-func (*KeyStoneAPI) Init() error {
+func (this *KeyStoneAPI) Init() error {
 	cacheAPI = new(Cache)
 	cacheAPI.Init()
 	configs = new(Configs)
 	configs.ReadConfigurationFormfile()
+	this.quotaAPI = new(QuotaImpl)
+	this.quotaAPI.Init()
 	return nil
 }
 
@@ -64,7 +69,7 @@ func (*KeyStoneAPI) Init() error {
 // 1- Validate Token
 // 2- Get ACLs or Lable for your valid token
 
-func (*KeyStoneAPI) ValidateRequest(cluster cluster.Cluster, eventType states.EventEnum, w http.ResponseWriter, r *http.Request) (states.ApprovalEnum, string) {
+func (this *KeyStoneAPI) ValidateRequest(cluster cluster.Cluster, eventType states.EventEnum, w http.ResponseWriter, r *http.Request, reqBody []byte) (states.ApprovalEnum, string) {
 
 	tokenToValidate := r.Header.Get(headers.AuthZTokenHeaderName)
 	tenantIdToValidate := r.Header.Get(headers.AuthZTenantIdHeaderName)
@@ -100,6 +105,12 @@ func (*KeyStoneAPI) ValidateRequest(cluster cluster.Cluster, eventType states.Ev
 			//TODO - maybe extract code?
 			switch eventType {
 			case states.ContainerCreate:
+				err := this.validateQuota(cluster, reqBody, tenantIdToValidate)
+				if err != nil{
+					w.WriteHeader(http.StatusUnauthorized)
+					w.Write([]byte(fmt.Sprintf("%v", err)))
+					return states.NotApproved, ""
+				}
 				return states.Approved, ""
 			case states.ContainersList:
 				return states.ConditionFilter, ""
@@ -118,6 +129,22 @@ func (*KeyStoneAPI) ValidateRequest(cluster cluster.Cluster, eventType states.Ev
 	log.Info("tenantId not Found: ")
 	//log.Info(tenantId)
 	return states.NotApproved, ""
+}
+
+func (this *KeyStoneAPI) validateQuota(cluster cluster.Cluster, reqBody []byte, tenant string) error {
+	log.Info("Going to validate quota")
+	log.Debug("Parsing requiered memory field")
+	var fieldType float64
+	res, err := utils.ParseField("HostConfig.Memory", fieldType, reqBody)
+	if err != nil{
+		log.Error("Failed to parse mandatory memory limit in container config")
+		return errors.New("Failed to parse mandatory memory limit from container config")
+	}
+
+	memory := res.(float64)
+	log.Debug("Memory field: ", strconv.FormatFloat(memory, 'f', -1, 64))
+
+	return this.quotaAPI.ValidateQuota(cluster, tenant, memory)
 }
 
 func isAdminTenant(tenantIdToValidate string) bool {

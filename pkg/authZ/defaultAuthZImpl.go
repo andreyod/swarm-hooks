@@ -3,7 +3,6 @@ package authZ
 import (
 	"bytes"
 	"encoding/json"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strings"
@@ -16,57 +15,21 @@ import (
 	"github.com/docker/swarm/pkg/authZ/headers"
 	"github.com/docker/swarm/pkg/authZ/utils"
 	"github.com/gorilla/mux"
-	"github.com/docker/swarm/pkg/authZ/keystone"
-	"github.com/docker/swarm/cluster"
-	"strconv"
-	"fmt"
-	"errors"
 )
 
 //DefaultImp - Default basic label based implementation of ACLs & tenancy enforcment
-type DefaultImp struct{
-	quotaAPI keystone.QuotaAPI
-	}
+type DefaultImp struct{}
 
 //Init - Any required initialization
-func (this *DefaultImp) Init() error {
-	this.quotaAPI = new(keystone.QuotaImpl)
-	this.quotaAPI.Init()
-
+func (*DefaultImp) Init() error {
 	return nil
 }
 
-func (this *DefaultImp) validateQuota(cluster cluster.Cluster, reqBody []byte, tenant string) error {
-	log.Info("Going to validate quota")
-	log.Debug("Parsing requiered memory field")
-	var fieldType float64
-	res, err := utils.ParseField("HostConfig.Memory", fieldType, reqBody)
-	if err != nil{
-		log.Error("Failed to parse mandatory memory limit in container config")
-		return errors.New("Failed to parse mandatory memory limit from container config")
-	}
-
-	memory := res.(float64)
-	log.Debug("Memory field: ", strconv.FormatFloat(memory, 'f', -1, 64))
-
-	return this.quotaAPI.ValidateQuota(cluster, tenant, memory)
-}
-
 //HandleEvent - Implement approved operation - Default labels based implmentation
-func (this *DefaultImp) HandleEvent(eventType states.EventEnum, w http.ResponseWriter, r *http.Request, next http.Handler, containerID string, cluster cluster.Cluster) {
+func (*DefaultImp) HandleEvent(eventType states.EventEnum, w http.ResponseWriter, r *http.Request, next http.Handler, containerID string, reqBody []byte) {
 	switch eventType {
 	case states.ContainerCreate:
 		log.Debug("In create...")
-		defer r.Body.Close()
-		reqBody, _ := ioutil.ReadAll(r.Body)
-
-		err := this.validateQuota(cluster, reqBody, r.Header.Get(headers.AuthZTenantIdHeaderName))
-		if err != nil{
-			w.WriteHeader(http.StatusUnauthorized)
-			w.Write([]byte(fmt.Sprintf("%v", err)))
-			return
-		}
-
 		log.Debug("Old body: " + string(reqBody))
 
 		//TODO - Here we just use the token for the tenant name for now

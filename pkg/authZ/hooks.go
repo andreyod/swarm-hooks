@@ -8,6 +8,7 @@ import (
 	"github.com/docker/swarm/cluster"
 	"github.com/docker/swarm/pkg/authZ/keystone"
 	"github.com/docker/swarm/pkg/authZ/states"
+	"io/ioutil"
 )
 
 //Hooks - Entry point to AuthZ mechanisem
@@ -23,7 +24,6 @@ type Hooks struct{}
 
 var authZAPI HandleAuthZAPI
 var aclsAPI ACLsAPI
-
 //EventEnum - State of event
 //type EventEnum int
 
@@ -35,14 +35,16 @@ var aclsAPI ACLsAPI
 func (*Hooks) PrePostAuthWrapper(cluster cluster.Cluster, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		eventType := eventParse(r)
-		isAllowed, containerID := aclsAPI.ValidateRequest(cluster, eventType, w, r)
+		defer r.Body.Close()
+		reqBody, _ := ioutil.ReadAll(r.Body)
+		isAllowed, containerID := aclsAPI.ValidateRequest(cluster, eventType, w, r, reqBody)
 		if isAllowed == states.Admin {
 			next.ServeHTTP(w, r)
 			return
 		}
 		//TODO - all kinds of conditionals
 		if eventType == states.PassAsIs || isAllowed == states.Approved || isAllowed == states.ConditionFilter {
-			authZAPI.HandleEvent(eventType, w, r, next, containerID, cluster)
+			authZAPI.HandleEvent(eventType, w, r, next, containerID, reqBody)
 		} else {
 			w.WriteHeader(http.StatusUnauthorized)
 			w.Write([]byte("Not Authorized!"))
