@@ -86,6 +86,7 @@ func (*Hooks) Init() {
 	aclsAPI = new(keystone.KeyStoneAPI)
 	aclsAPI.Init()
 	authZAPI = new(DefaultImp)
+	authZAPI.Init()
 	//TODO reflection using configuration file tring for the backend type
 
 	log.Info("Init provision engine OK")
