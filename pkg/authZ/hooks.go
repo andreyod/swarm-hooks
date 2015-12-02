@@ -9,6 +9,7 @@ import (
 	"github.com/docker/swarm/pkg/authZ/keystone"
 	"github.com/docker/swarm/pkg/authZ/states"
 	"io/ioutil"
+	"fmt"
 )
 
 //Hooks - Entry point to AuthZ mechanisem
@@ -37,7 +38,7 @@ func (*Hooks) PrePostAuthWrapper(cluster cluster.Cluster, next http.Handler) htt
 		eventType := eventParse(r)
 		defer r.Body.Close()
 		reqBody, _ := ioutil.ReadAll(r.Body)
-		isAllowed, containerID := aclsAPI.ValidateRequest(cluster, eventType, w, r, reqBody)
+		isAllowed, containerID, err := aclsAPI.ValidateRequest(cluster, eventType, w, r, reqBody)
 		if isAllowed == states.Admin {
 			next.ServeHTTP(w, r)
 			return
@@ -47,7 +48,7 @@ func (*Hooks) PrePostAuthWrapper(cluster cluster.Cluster, next http.Handler) htt
 			authZAPI.HandleEvent(eventType, w, r, next, containerID, reqBody)
 		} else {
 			w.WriteHeader(http.StatusUnauthorized)
-			w.Write([]byte("Not Authorized!"))
+			w.Write([]byte(fmt.Sprintf("%v", err)))
 		}
 	})
 }

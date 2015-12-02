@@ -9,9 +9,7 @@ import (
 	"github.com/docker/swarm/cluster"
 	"github.com/docker/swarm/pkg/authZ/states"
 	//	"github.com/docker/swarm/pkg/authZ"
-	//	"errors"
-	"fmt"
-	
+	"errors"
 
 	"github.com/docker/swarm/pkg/authZ/headers"
 	"github.com/docker/swarm/pkg/authZ/utils"
@@ -68,7 +66,7 @@ func (this *KeyStoneAPI) Init() error {
 // 1- Validate Token
 // 2- Get ACLs or Lable for your valid token
 // 3- Set up cache to save Keystone call
-func (this *KeyStoneAPI) ValidateRequest(cluster cluster.Cluster, eventType states.EventEnum, w http.ResponseWriter, r *http.Request, reqBody []byte) (states.ApprovalEnum, string) {
+func (this *KeyStoneAPI) ValidateRequest(cluster cluster.Cluster, eventType states.EventEnum, w http.ResponseWriter, r *http.Request, reqBody []byte) (states.ApprovalEnum, string, error) {
 
 	tokenToValidate := r.Header.Get(headers.AuthZTokenHeaderName)
 	tokenToValidate = strings.TrimSpace(tokenToValidate)
@@ -78,11 +76,11 @@ func (this *KeyStoneAPI) ValidateRequest(cluster cluster.Cluster, eventType stat
 	valid := queryKeystone(tenantIdToValidate, tokenToValidate)
 
 	if !valid {
-		return states.NotApproved, ""
+		return states.NotApproved, "", errors.New("Keystone validation failed. Not Authorized!")
 	}
 
 	if isAdminTenant(tenantIdToValidate) {
-		return states.Admin, ""
+		return states.Admin, "", nil
 	}
 
 	//SHORT CIRCUIT KEYSTONE
@@ -91,25 +89,22 @@ func (this *KeyStoneAPI) ValidateRequest(cluster cluster.Cluster, eventType stat
 	case states.ContainerCreate:
 		err := this.quotaAPI.ValidateQuota(cluster, reqBody, tenantIdToValidate)
 		if err != nil {
-			//TODO - decide on one place to write response
-			w.WriteHeader(http.StatusUnauthorized)
-			w.Write([]byte(fmt.Sprintf("%v", err)))
-			return states.NotApproved, ""
+			return states.QuotaLimit, "", err
 		}
-		return states.Approved, ""
+		return states.Approved, "", nil
 	case states.ContainersList:
-		return states.ConditionFilter, ""
+		return states.ConditionFilter, "", nil
 	case states.Unauthorized:
-		return states.NotApproved, ""
+		return states.NotApproved, "", nil
 	default:
 		//CONTAINER_INSPECT / CONTAINER_OTHERS / STREAM_OR_HIJACK / PASS_AS_IS
 		isOwner, id := utils.CheckOwnerShip(cluster, tenantIdToValidate, r)
 		if isOwner {
-			return states.Approved, id
+			return states.Approved, id, nil
 		}
 	}
 	log.Debug("SHOULD NOT BE HERE....")
-	return states.NotApproved, ""
+	return states.NotApproved, "", errors.New("SHOULD NOT BE HERE. Not Authorized!")
 }
 
 func isAdminTenant(tenantIdToValidate string) bool {

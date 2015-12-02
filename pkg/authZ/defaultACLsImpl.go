@@ -21,28 +21,28 @@ type DefaultACLsImpl struct{}
 /*
 ValidateRequest - Who wants to do what - allow or not
 */
-func (*DefaultACLsImpl) ValidateRequest(cluster cluster.Cluster, eventType states.EventEnum, w http.ResponseWriter, r *http.Request, reqBody []byte) (states.ApprovalEnum, string) {
+func (*DefaultACLsImpl) ValidateRequest(cluster cluster.Cluster, eventType states.EventEnum, w http.ResponseWriter, r *http.Request, reqBody []byte) (states.ApprovalEnum, string, error) {
 	tokenToValidate := r.Header.Get(headers.AuthZTokenHeaderName)
 
 	if tokenToValidate == "" {
-		return states.NotApproved, ""
+		return states.NotApproved, "", nil
 	}
 	//TODO - Duplication revise
 	switch eventType {
 	case states.ContainerCreate:
-		return states.Approved, ""
+		return states.Approved, "", nil
 	case states.ContainersList:
-		return states.ConditionFilter, ""
+		return states.ConditionFilter, "", nil
 	case states.Unauthorized:
-		return states.NotApproved, ""
+		return states.NotApproved, "", nil
 	default:
 		//CONTAINER_INSPECT / CONTAINER_OTHERS / STREAM_OR_HIJACK / PASS_AS_IS
 		isOwner, id := utils.CheckOwnerShip(cluster, tokenToValidate, r)
 		if isOwner {
-			return states.Approved, id
+			return states.Approved, id, nil
 		}
 	}
-	return states.NotApproved, ""
+	return states.NotApproved, "", nil
 }
 
 //Init - Any required initialization

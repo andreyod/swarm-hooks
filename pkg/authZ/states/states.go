@@ -23,4 +23,5 @@ const (
 	ConditionFilter
 	ConditionOverride
 	Admin
+	QuotaLimit
 )

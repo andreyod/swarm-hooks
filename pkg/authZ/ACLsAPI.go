@@ -15,5 +15,5 @@ type ACLsAPI interface {
 
 	//Is valid and the label for the token if it is valid.
 	//TODO - expand response according to design
-	ValidateRequest(cluster cluster.Cluster, eventType states.EventEnum, w http.ResponseWriter, r *http.Request, reqBody []byte) (states.ApprovalEnum, string)
+	ValidateRequest(cluster cluster.Cluster, eventType states.EventEnum, w http.ResponseWriter, r *http.Request, reqBody []byte) (states.ApprovalEnum, string, error)
 }
