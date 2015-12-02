@@ -23,8 +23,6 @@ var cacheAPI *Cache
 
 var configs *Configs
 
-var quotaAPI *QuotaAPI
-
 func doHTTPreq(reqType, url, jsonBody string, headers map[string]string) *http.Response {
 	var req *http.Request = nil
 	var err error = nil
@@ -61,8 +59,8 @@ func (this *KeyStoneAPI) Init() error {
 	cacheAPI.Init()
 	configs = new(Configs)
 	configs.ReadConfigurationFormfile()
-	quotaAPI = new(QuotaImpl)
-	quotaAPI.Init()
+	this.quotaAPI = new(QuotaImpl)
+	this.quotaAPI.Init()
 	return nil
 }
 
@@ -70,7 +68,7 @@ func (this *KeyStoneAPI) Init() error {
 // 1- Validate Token
 // 2- Get ACLs or Lable for your valid token
 // 3- Set up cache to save Keystone call
-func (*KeyStoneAPI) ValidateRequest(cluster cluster.Cluster, eventType states.EventEnum, w http.ResponseWriter, r *http.Request, reqBody []byte) (states.ApprovalEnum, string) {
+func (this *KeyStoneAPI) ValidateRequest(cluster cluster.Cluster, eventType states.EventEnum, w http.ResponseWriter, r *http.Request, reqBody []byte) (states.ApprovalEnum, string) {
 
 	tokenToValidate := r.Header.Get(headers.AuthZTokenHeaderName)
 	tokenToValidate = strings.TrimSpace(tokenToValidate)
@@ -88,10 +86,10 @@ func (*KeyStoneAPI) ValidateRequest(cluster cluster.Cluster, eventType states.Ev
 	}
 
 	//SHORT CIRCUIT KEYSTONE
-	tenantIdToValidate = tokenToValidate
+//	tenantIdToValidate = tokenToValidate
 	switch eventType {
 	case states.ContainerCreate:
-		err := quotaAPI.quvalidateQuota(cluster, reqBody, tenantIdToValidate)
+		err := this.quotaAPI.ValidateQuota(cluster, reqBody, tenantIdToValidate)
 		if err != nil {
 			//TODO - decide on one place to write response
 			w.WriteHeader(http.StatusUnauthorized)
@@ -112,13 +110,6 @@ func (*KeyStoneAPI) ValidateRequest(cluster cluster.Cluster, eventType states.Ev
 	}
 	log.Debug("SHOULD NOT BE HERE....")
 	return states.NotApproved, ""
-}
-
-func (*KeyStoneAPI) validateQuota(cluster cluster.Cluster, reqBody []byte, tenant string) error {
-	
-	this.quotaAPI.ValidateQuota(cluster, tenant, reqBody)
-	
-	
 }
 
 func isAdminTenant(tenantIdToValidate string) bool {

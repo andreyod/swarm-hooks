@@ -17,32 +17,37 @@ type QuotaImpl struct {
 var tenancyLabel = "com.swarm.tenant.0"
 var CONFIG_FILE_PATH = "/root/.docker/config.json"
 var DEFAULT_MEMORY_QUOTA int64 = 1024 * 1024 * 100 //100MB (Currently hardcoded for all tenant)
-var DEFAULT_MEMORY int64 = 1024 * 1024 * 10        //10MB (Currently hardcoded for all tenant)
+var DEFAULT_MEMORY float64 = 1024 * 1024 * 10        //10MB (Currently hardcoded for all tenant)
 
 /*
 ValidateQuota - checks if tenant quota satisfies container create request
 */
-func ( *QuotaImpl) ValidateQuota(myCluster cluster.Cluster, tenant string, reqBody []byte) error {
-	
-	
-	
-	
+func (this *QuotaImpl) ValidateQuota(myCluster cluster.Cluster, reqBody []byte, tenant string) error {
 	log.Info("Going to validate quota")
 	log.Debug("Parsing requiered memory field")
 	var fieldType float64
+	var memory float64
 	res, err := utils.ParseField("HostConfig.Memory", fieldType, reqBody)
 	if err != nil {
-		log.Debug("Failed to parse mandatory memory limit in container config take default")
-		//		return errors.New("Failed to parse mandatory memory limit from container config")
+		log.Debugf("Failed to parse mandatory memory limit in container config, using default memory limit of %vB", DEFAULT_MEMORY)
+		memory = DEFAULT_MEMORY
+		
+//		log.Debug("Failed to parse mandatory memory limit in container config")
+//		return errors.New("Failed to parse mandatory memory limit from container config")
+	}else{
+		memory = res.(float64)
+		
+		if memory == 0{
+			log.Debugf("Parsed memory limit is 0, using default memory limit of %vB", DEFAULT_MEMORY)
+			memory = DEFAULT_MEMORY
+			
+	//		log.Debug("Failed to parse mandatory memory limit in container config")
+	//		return errors.New("Failed to parse mandatory memory limit from container config")
+		}
 	}
-
-	memory := res.(float64)
+	
 	log.Debug("Memory field: ", strconv.FormatFloat(memory, 'f', -1, 64))
 
-	this.quotaAPI.ValidateQuota(cluster, tenant, reqBody)
-	
-	
-	log.Debugf("In ValidateQuota with tenant %v and quota limit %v", tenant, this.tenantMemoryQuota)
 	containers := myCluster.Containers()
 
 	var tenantMemoryTotal int64 = 0
@@ -83,7 +88,7 @@ Example of config file (located at /root/.docker/config.json):
     }
 }
 */
-func ( *QuotaImpl) Init() error {
+func (this *QuotaImpl) Init() error {
 	log.Debugf("Initializing quotas")
 
 	file, e := ioutil.ReadFile(CONFIG_FILE_PATH)
