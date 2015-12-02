@@ -74,11 +74,11 @@ func eventParse(r *http.Request) states.EventEnum {
 		return states.ContainerOthers
 	}
 
-	if strings.Contains(r.RequestURI, "Will add to here all APIs we explicitly want to block") {
-		return states.NotSupported
-	}
+//	if strings.Contains(r.RequestURI, "Will add to here all APIs we explicitly want to block") {
+//		return states.NotSupported
+//	}
 
-	return states.PassAsIs
+	return states.NotSupported
 }
 
 //Init - Initialize the Validation and Handling APIs

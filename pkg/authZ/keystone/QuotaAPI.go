@@ -11,5 +11,5 @@ type QuotaAPI interface {
 	Init() error
 
 	//Validates if the tenant quota valid. Should return error?
-	ValidateQuota(myCluster cluster.Cluster, tenant string, memory float64) error
+	ValidateQuota(myCluster cluster.Cluster, tenant string, reqBody []byte) error
 }

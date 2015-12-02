@@ -2,7 +2,6 @@ package keystone
 
 import (
 	"bytes"
-	"io/ioutil"
 	"net/http"
 	"strings"
 
@@ -10,19 +9,21 @@ import (
 	"github.com/docker/swarm/cluster"
 	"github.com/docker/swarm/pkg/authZ/states"
 	//	"github.com/docker/swarm/pkg/authZ"
+	//	"errors"
+	"fmt"
+	
+
 	"github.com/docker/swarm/pkg/authZ/headers"
 	"github.com/docker/swarm/pkg/authZ/utils"
-	"github.com/jeffail/gabs"
-	"strconv"
-	"fmt"
-	"errors"
 )
 
-type KeyStoneAPI struct{quotaAPI QuotaAPI}
+type KeyStoneAPI struct{ quotaAPI QuotaAPI }
 
 var cacheAPI *Cache
 
 var configs *Configs
+
+var quotaAPI *QuotaAPI
 
 func doHTTPreq(reqType, url, jsonBody string, headers map[string]string) *http.Response {
 	var req *http.Request = nil
@@ -60,28 +61,81 @@ func (this *KeyStoneAPI) Init() error {
 	cacheAPI.Init()
 	configs = new(Configs)
 	configs.ReadConfigurationFormfile()
-	this.quotaAPI = new(QuotaImpl)
-	this.quotaAPI.Init()
+	quotaAPI = new(QuotaImpl)
+	quotaAPI.Init()
 	return nil
 }
 
 //TODO - May want to sperate concenrns
 // 1- Validate Token
 // 2- Get ACLs or Lable for your valid token
-
-func (this *KeyStoneAPI) ValidateRequest(cluster cluster.Cluster, eventType states.EventEnum, w http.ResponseWriter, r *http.Request, reqBody []byte) (states.ApprovalEnum, string) {
+// 3- Set up cache to save Keystone call
+func (*KeyStoneAPI) ValidateRequest(cluster cluster.Cluster, eventType states.EventEnum, w http.ResponseWriter, r *http.Request, reqBody []byte) (states.ApprovalEnum, string) {
 
 	tokenToValidate := r.Header.Get(headers.AuthZTokenHeaderName)
-	tenantIdToValidate := r.Header.Get(headers.AuthZTenantIdHeaderName)
-	log.Info("Going to validate token: " + tokenToValidate)
-	log.Info("Going to validate tenantId: " + tenantIdToValidate)
-
-	log.Info("Please set up the cache...")
-
-	var headers = map[string]string{
-		"X-Auth-Token": tokenToValidate,
-	}
 	tokenToValidate = strings.TrimSpace(tokenToValidate)
+	tenantIdToValidate := r.Header.Get(headers.AuthZTenantIdHeaderName)
+
+	log.Debugf("Going to validate token:  %v, for tenant Id: %v, ", tokenToValidate, tenantIdToValidate)
+	valid := queryKeystone(tenantIdToValidate, tokenToValidate)
+
+	if !valid {
+		return states.NotApproved, ""
+	}
+
+	if isAdminTenant(tenantIdToValidate) {
+		return states.Admin, ""
+	}
+
+	//SHORT CIRCUIT KEYSTONE
+	tenantIdToValidate = tokenToValidate
+	switch eventType {
+	case states.ContainerCreate:
+		err := quotaAPI.quvalidateQuota(cluster, reqBody, tenantIdToValidate)
+		if err != nil {
+			//TODO - decide on one place to write response
+			w.WriteHeader(http.StatusUnauthorized)
+			w.Write([]byte(fmt.Sprintf("%v", err)))
+			return states.NotApproved, ""
+		}
+		return states.Approved, ""
+	case states.ContainersList:
+		return states.ConditionFilter, ""
+	case states.Unauthorized:
+		return states.NotApproved, ""
+	default:
+		//CONTAINER_INSPECT / CONTAINER_OTHERS / STREAM_OR_HIJACK / PASS_AS_IS
+		isOwner, id := utils.CheckOwnerShip(cluster, tenantIdToValidate, r)
+		if isOwner {
+			return states.Approved, id
+		}
+	}
+	log.Debug("SHOULD NOT BE HERE....")
+	return states.NotApproved, ""
+}
+
+func (*KeyStoneAPI) validateQuota(cluster cluster.Cluster, reqBody []byte, tenant string) error {
+	
+	this.quotaAPI.ValidateQuota(cluster, tenant, reqBody)
+	
+	
+}
+
+func isAdminTenant(tenantIdToValidate string) bool {
+	//Kenneth - Determine who is admin using keystone...
+	return false
+}
+
+//SHORT CIRCUIT KEYSTONE
+func queryKeystone(tenantIdToValidate string, tokenToValidate string) bool {
+	return true
+}
+
+/*
+func queryKeystone(tenantIdToValidate string, tokenToValidate string) bool {
+	var headers = map[string]string{
+		headers.AuthZTokenHeaderName: tokenToValidate,
+	}
 	resp := doHTTPreq("GET", configs.GetConf().KeystoneUrl+"tenants", "", headers)
 	defer resp.Body.Close()
 	log.Debug("response Status:", resp.Status)
@@ -89,65 +143,18 @@ func (this *KeyStoneAPI) ValidateRequest(cluster cluster.Cluster, eventType stat
 	body, _ := ioutil.ReadAll(resp.Body)
 	log.Debug("response Body:", string(body))
 	if 200 != resp.StatusCode {
-		return states.NotApproved, "Invalid user token"
+		return false
 	}
-	log.Info("Valid user token!")
+
 	jsonParsed, _ := gabs.ParseJSON(body)
 	children, _ := jsonParsed.S("tenants").Children()
-	//tenantId = children[i].Path("id").Data().(string)
+
 	for i := 0; i < len(children); i++ {
 		if children[i].Path("id").Data().(string) == tenantIdToValidate {
-
-			if isAdminTenant(tenantIdToValidate) {
-				return states.Admin, ""
-			}
-			log.Info("tenantId Found: ")
-			//TODO - maybe extract code?
-			switch eventType {
-			case states.ContainerCreate:
-				err := this.validateQuota(cluster, reqBody, tenantIdToValidate)
-				if err != nil{
-					w.WriteHeader(http.StatusUnauthorized)
-					w.Write([]byte(fmt.Sprintf("%v", err)))
-					return states.NotApproved, ""
-				}
-				return states.Approved, ""
-			case states.ContainersList:
-				return states.ConditionFilter, ""
-			case states.Unauthorized:
-				return states.NotApproved, ""
-			default:
-				//CONTAINER_INSPECT / CONTAINER_OTHERS / STREAM_OR_HIJACK / PASS_AS_IS
-				isOwner, id := utils.CheckOwnerShip(cluster, tenantIdToValidate, r)
-				if isOwner {
-					return states.Approved, id
-				}
-			}
-			return states.Approved, tenantIdToValidate
+			return true
 		}
 	}
-	log.Info("tenantId not Found: ")
-	//log.Info(tenantId)
-	return states.NotApproved, ""
-}
-
-func (this *KeyStoneAPI) validateQuota(cluster cluster.Cluster, reqBody []byte, tenant string) error {
-	log.Info("Going to validate quota")
-	log.Debug("Parsing requiered memory field")
-	var fieldType float64
-	res, err := utils.ParseField("HostConfig.Memory", fieldType, reqBody)
-	if err != nil{
-		log.Error("Failed to parse mandatory memory limit in container config")
-		return errors.New("Failed to parse mandatory memory limit from container config")
-	}
-
-	memory := res.(float64)
-	log.Debug("Memory field: ", strconv.FormatFloat(memory, 'f', -1, 64))
-
-	return this.quotaAPI.ValidateQuota(cluster, tenant, memory)
-}
-
-func isAdminTenant(tenantIdToValidate string) bool {
-	//Kenneth - Determine who is admin using keystone...
+	log.Debug("Tenant not found")
 	return false
 }
+*/

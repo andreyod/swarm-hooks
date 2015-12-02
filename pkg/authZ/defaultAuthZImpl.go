@@ -35,7 +35,15 @@ func (*DefaultImp) HandleEvent(eventType states.EventEnum, w http.ResponseWriter
 		//TODO - Here we just use the token for the tenant name for now
 		newBody := bytes.Replace(reqBody, []byte("{"), []byte("{\"Labels\": {\""+headers.TenancyLabel+"\":\""+r.Header.Get(headers.AuthZTenantIdHeaderName)+"\"},"), 1)
 		log.Debug("New body: " + string(newBody))
+		//------------
+		var fieldType float64
+		zabaMuchi, _ := utils.ParseField("HostConfig.Links", fieldType, reqBody)
 
+		log.Debug(zabaMuchi)
+		log.Debug(".....................")
+		log.Debug("Old body: " + string(reqBody))
+
+		//------------
 		var newQuery string
 		if "" != r.URL.Query().Get("name") {
 			log.Debug("Postfixing name with Label...")
