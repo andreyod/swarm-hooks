@@ -6,7 +6,7 @@ setup() {
 	UserToken=Space1
 	UserToken2=Space2
 	ContainerId=$(curl --data-binary @redis1.json -H "X-Auth-Token:$UserToken" -H "X-Auth-TenantId:$UserToken" -H "Content-type: application/json" $SwarmNode/containers/create | jq -r '.Id')
-	curl -v -X POST -H "X-Auth-Token:$UserToken" $SwarmNode/v1.18/containers/$ContainerId/start
+	curl -v -X POST -H "X-Auth-Token:$UserToken" -H "X-Auth-TenantId:$UserToken" $SwarmNode/v1.18/containers/$ContainerId/start
 }
 
 @test "Testing usage with ID prefix..." {
@@ -27,7 +27,7 @@ setup() {
 }
 
 @test "Tesing multi tenancy on Checking list containers..." {
-        HTTPCode=$(curl -H "X-Auth-Token:$UserToken" -H "X-Auth-TenantId:$UserToken2" --write-out %{http_code} --silent --output /dev/null  "$SwarmNode/containers/json?all=1")
+        HTTPCode=$(curl -H "X-Auth-Token:$UserToken" -H "X-Auth-TenantId:$UserToken" --write-out %{http_code} --silent --output /dev/null  "$SwarmNode/containers/json?all=1")
         [ "$HTTPCode" -eq 200 ]
 }
 
