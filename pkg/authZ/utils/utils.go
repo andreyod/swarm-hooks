@@ -2,12 +2,12 @@ package utils
 
 import (
 	"bytes"
+	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	"errors"
-	"fmt"
 
 	"strings"
 
@@ -16,12 +16,19 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/docker/swarm/cluster"
 
+	"strconv"
 
 	"github.com/docker/swarm/pkg/authZ/headers"
 	"github.com/gorilla/mux"
 	"github.com/jeffail/gabs"
-	"strconv"
 )
+
+type ValidationOutPutDTO struct {
+	ContainerID string
+	Links       map[string]string
+	//Quota can live here too?
+	//What else
+}
 
 //UTILS
 
@@ -45,27 +52,65 @@ func ModifyRequest(r *http.Request, body io.Reader, urlStr string, containerID s
 	return r, nil
 }
 
+func CheckLinksOwnerShip(cluster cluster.Cluster, tenantName string, r *http.Request, reqBody []byte) (bool, *ValidationOutPutDTO) {
+	jsonParsed, _ := gabs.ParseJSON(reqBody)
+
+	//TODO - Consider refactor all to use json parse and not regexp and maybe save memory on de duplication
+	log.Debug("Checking links...")
+	children, _ := jsonParsed.Path("HostConfig.Links").Children()
+	containers := cluster.Containers()
+	linkSet := make(map[string]string)
+	var c int
+	var l int
+	log.Debug("**************************************************")
+	for _, child := range children {
+		log.Debug("_________________")
+		c++
+
+		pair := child.Data().(string)
+		linkPair := strings.Split(pair, ":")
+		log.Debug(pair)
+		log.Debug(linkPair)
+		for _, container := range containers {
+			log.Debug(container.Info.Name)
+			if "/"+linkPair[0]+tenantName == container.Info.Name || "/"+linkPair[0] == container.Info.Name {
+				log.Debug("#####################################")
+				linkSet[container.Info.Id] = linkPair[0]
+				l++
+			}
+		}
+	}
+	log.Debug("**************************************************")
+	if l != c {
+		//TODO - Change to pointer and return nil
+		return false, &ValidationOutPutDTO{ContainerID: "", Links: linkSet}
+	}
+	v := ValidationOutPutDTO{ContainerID: "", Links: linkSet}
+	return true, &v
+
+}
+
 //TODO - Pass by ref ?
-func CheckOwnerShip(cluster cluster.Cluster, tenantName string, r *http.Request) (bool, string) {
+func CheckOwnerShip(cluster cluster.Cluster, tenantName string, r *http.Request) (bool, *ValidationOutPutDTO) {
 	containers := cluster.Containers()
 	log.Debug("got name: ", mux.Vars(r)["name"])
 	tenantSet := make(map[string]bool)
 	for _, container := range containers {
 		if "/"+mux.Vars(r)["name"]+tenantName == container.Info.Name {
 			log.Debug("Match By name!")
-			return true, container.Info.Id
+			return true, &ValidationOutPutDTO{ContainerID: container.Info.Id, Links: nil}
 		} else if "/"+mux.Vars(r)["name"] == container.Info.Name {
 			if container.Labels[headers.TenancyLabel] == tenantName {
-				return true, container.Info.Id
+				return true, &ValidationOutPutDTO{ContainerID: container.Info.Id, Links: nil}
 			}
 		} else if mux.Vars(r)["name"] == container.Info.Id {
 			log.Debug("Match By full ID! Checking Ownership...")
 			log.Debug("Tenant name: ", tenantName)
 			log.Debug("Tenant Lable: ", container.Labels[headers.TenancyLabel])
 			if container.Labels[headers.TenancyLabel] == tenantName {
-				return true, container.Info.Id
+				return true, &ValidationOutPutDTO{ContainerID: container.Info.Id, Links: nil}
 			}
-			return false, ""
+			return false, nil
 
 		}
 		if container.Labels[headers.TenancyLabel] == tenantName {
@@ -83,7 +128,7 @@ func CheckOwnerShip(cluster cluster.Cluster, tenantName string, r *http.Request)
 		}
 		if ambiguityCounter == 1 {
 			log.Debug("Matched by short ID")
-			return true, returnID
+			return true, &ValidationOutPutDTO{ContainerID: returnID, Links: nil}
 		}
 		if ambiguityCounter > 1 {
 			log.Debug("Ambiguiy by short ID")
@@ -94,7 +139,7 @@ func CheckOwnerShip(cluster cluster.Cluster, tenantName string, r *http.Request)
 			//TODO - no such container
 		}
 	}
-	return false, ""
+	return false, nil
 }
 
 func CleanUpLabeling(r *http.Request, rec *httptest.ResponseRecorder) []byte {
@@ -115,16 +160,23 @@ func ParseField(field string, fieldType interface{}, body []byte) (interface{}, 
 	}
 
 	switch v := fieldType.(type) {
-        case float64:
-			log.Debug("Parsing type: ", v)
-			parsedField, ok := jsonParsed.Path(field).Data().(float64)
-			if ok{
-				res := strconv.FormatFloat(parsedField, 'f', -1, 64)
-				log.Debugf("Parsed field: " + res)
-				return parsedField, nil
-			}
-        default:
-			log.Error("Unknown field type to parse")
+	case float64:
+		log.Debug("Parsing type: ", v)
+		parsedField, ok := jsonParsed.Path(field).Data().(float64)
+		if ok {
+			res := strconv.FormatFloat(parsedField, 'f', -1, 64)
+			log.Debugf("Parsed field: " + res)
+			return parsedField, nil
+		}
+	case []string:
+		log.Debug("Parsing type: ", v)
+		parsedField, ok := jsonParsed.Path(field).Data().([]string)
+		if ok {
+			log.Debug(parsedField)
+			return parsedField, nil
+		}
+	default:
+		log.Error("Unknown field type to parse")
 	}
 
 	return nil, errors.New(fmt.Sprintf("failed to parse field %s from request body %s", field, string(body)))
