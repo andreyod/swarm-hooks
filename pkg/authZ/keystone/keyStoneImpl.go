@@ -2,12 +2,15 @@ package keystone
 
 import (
 	"bytes"
+	"io/ioutil"
 	"net/http"
+	"os"
 	"strings"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/docker/swarm/cluster"
 	"github.com/docker/swarm/pkg/authZ/states"
+	"github.com/jeffail/gabs"
 	//	"github.com/docker/swarm/pkg/authZ"
 	//	"errors"
 	"fmt"
@@ -114,16 +117,18 @@ func (this *KeyStoneAPI) ValidateRequest(cluster cluster.Cluster, eventType stat
 }
 
 func isAdminTenant(tenantIdToValidate string) bool {
-	//Kenneth - Determine who is admin using keystone...
-	return false
+	log.Info("isAdminTenant(" + tenantIdToValidate + ")")
+	swarmAdminTenantId := os.Getenv("SWARM_ADMIN_TENANT_ID")
+	log.Debug("SWARM_ADMIN_TENANT_ID: " + swarmAdminTenantId)
+	log.Debug("isAdminTenant: ", swarmAdminTenantId == tenantIdToValidate)
+	return swarmAdminTenantId == tenantIdToValidate
 }
 
 //SHORT CIRCUIT KEYSTONE
-func queryKeystone(tenantIdToValidate string, tokenToValidate string) bool {
-	return true
-}
+//func queryKeystone(tenantIdToValidate string, tokenToValidate string) bool {
+//	return true
+//}
 
-/*
 func queryKeystone(tenantIdToValidate string, tokenToValidate string) bool {
 	var headers = map[string]string{
 		headers.AuthZTokenHeaderName: tokenToValidate,
@@ -140,13 +145,32 @@ func queryKeystone(tenantIdToValidate string, tokenToValidate string) bool {
 
 	jsonParsed, _ := gabs.ParseJSON(body)
 	children, _ := jsonParsed.S("tenants").Children()
-
-	for i := 0; i < len(children); i++ {
-		if children[i].Path("id").Data().(string) == tenantIdToValidate {
-			return true
-		}
+	var isSwarmMember bool = false
+	var swarmMembersTenantId string = os.Getenv("SWARM_MEMBERS_TENANT_ID")
+	if swarmMembersTenantId == "" {
+		log.Info("SWARM_MEMBERS_TENANT_ID is blank")
+		isSwarmMember = true
 	}
-	log.Debug("Tenant not found")
-	return false
+	var isTenantFound bool = false
+	if tenantIdToValidate != swarmMembersTenantId {
+		for i := 0; i < len(children); i++ {
+			if children[i].Path("id").Data().(string) == tenantIdToValidate {
+				isTenantFound = true
+			} else if !isSwarmMember {
+				if children[i].Path("id").Data().(string) == swarmMembersTenantId {
+					isSwarmMember = true
+				}
+			}
+			if isTenantFound && isSwarmMember {
+				log.Info("isTenantFound and isSwarmMember are true")
+				break
+			}
+		}
+	} else {
+		log.Debug("error: Tenant trying use SWARM_MEMBERS_TENANT_ID")
+	}
+	if !(isTenantFound && isSwarmMember) {
+		log.Debug("error: Tenant not eligible")
+	}
+	return isTenantFound && isSwarmMember
 }
-*/
