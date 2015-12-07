@@ -26,7 +26,7 @@ func (*DefaultImp) Init() error {
 }
 
 //HandleEvent - Implement approved operation - Default labels based implmentation
-func (*DefaultImp) HandleEvent(eventType states.EventEnum, w http.ResponseWriter, r *http.Request, next http.Handler, containerID string, reqBody []byte) {
+func (*DefaultImp) HandleEvent(eventType states.EventEnum, w http.ResponseWriter, r *http.Request, next http.Handler, dto *utils.ValidationOutPutDTO, reqBody []byte) {
 	switch eventType {
 	case states.ContainerCreate:
 		log.Debug("In create...")
@@ -34,23 +34,21 @@ func (*DefaultImp) HandleEvent(eventType states.EventEnum, w http.ResponseWriter
 
 		//TODO - Here we just use the token for the tenant name for now
 		newBody := bytes.Replace(reqBody, []byte("{"), []byte("{\"Labels\": {\""+headers.TenancyLabel+"\":\""+r.Header.Get(headers.AuthZTenantIdHeaderName)+"\"},"), 1)
+		for cId, _ := range dto.Links {
+			log.Debug(cId)
+			cName := dto.Links[cId]
+			newBody = bytes.Replace(newBody, []byte(cName+":"), []byte(cId+":"), 1)
+		}
+
 		log.Debug("New body: " + string(newBody))
-		//------------
-		var fieldType float64
-		zabaMuchi, _ := utils.ParseField("HostConfig.Links", fieldType, reqBody)
 
-		log.Debug(zabaMuchi)
-		log.Debug(".....................")
-		log.Debug("Old body: " + string(reqBody))
-
-		//------------
 		var newQuery string
 		if "" != r.URL.Query().Get("name") {
 			log.Debug("Postfixing name with Label...")
 			newQuery = strings.Replace(r.RequestURI, r.URL.Query().Get("name"), r.URL.Query().Get("name")+r.Header.Get(headers.AuthZTenantIdHeaderName), 1)
 			log.Debug(newQuery)
 		}
-
+		
 		newReq, e1 := utils.ModifyRequest(r, bytes.NewReader(newBody), newQuery, "")
 		if e1 != nil {
 			log.Error(e1)
@@ -61,8 +59,8 @@ func (*DefaultImp) HandleEvent(eventType states.EventEnum, w http.ResponseWriter
 		log.Debug("In inspect...")
 		rec := httptest.NewRecorder()
 
-		r.URL.Path = strings.Replace(r.URL.Path, mux.Vars(r)["name"], containerID, 1)
-		mux.Vars(r)["name"] = containerID
+		r.URL.Path = strings.Replace(r.URL.Path, mux.Vars(r)["name"], dto.ContainerID, 1)
+		mux.Vars(r)["name"] = dto.ContainerID
 		next.ServeHTTP(rec, r)
 
 		/*POST Swarm*/
@@ -87,7 +85,7 @@ func (*DefaultImp) HandleEvent(eventType states.EventEnum, w http.ResponseWriter
 		}
 		log.Debug("New Query: ", newQuery)
 
-		newReq, e1 := utils.ModifyRequest(r, nil, newQuery, containerID)
+		newReq, e1 := utils.ModifyRequest(r, nil, newQuery, "")
 		if e1 != nil {
 			log.Error(e1)
 		}
@@ -108,16 +106,16 @@ func (*DefaultImp) HandleEvent(eventType states.EventEnum, w http.ResponseWriter
 
 	case states.ContainerOthers:
 		log.Debug("In others...")
-		r.URL.Path = strings.Replace(r.URL.Path, mux.Vars(r)["name"], containerID, 1)
-		mux.Vars(r)["name"] = containerID
+		r.URL.Path = strings.Replace(r.URL.Path, mux.Vars(r)["name"], dto.ContainerID, 1)
+		mux.Vars(r)["name"] = dto.ContainerID
 
 		next.ServeHTTP(w, r)
 
 		//TODO - hijack and others are the same because we handle no post and no stream manipulation and no handler override yet
 	case states.StreamOrHijack:
 		log.Debug("In stream/hijack...")
-		r.URL.Path = strings.Replace(r.URL.Path, mux.Vars(r)["name"], containerID, 1)
-		mux.Vars(r)["name"] = containerID
+		r.URL.Path = strings.Replace(r.URL.Path, mux.Vars(r)["name"], dto.ContainerID, 1)
+		mux.Vars(r)["name"] = dto.ContainerID
 		next.ServeHTTP(w, r)
 
 	case states.PassAsIs:

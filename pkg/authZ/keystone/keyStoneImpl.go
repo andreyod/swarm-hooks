@@ -2,14 +2,16 @@ package keystone
 
 import (
 	"bytes"
+	"io/ioutil"
 	"net/http"
+	"os"
 	"strings"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/docker/swarm/cluster"
 	"github.com/docker/swarm/pkg/authZ/states"
+	"github.com/jeffail/gabs"
 	//	"github.com/docker/swarm/pkg/authZ"
-	"errors"
 
 	"github.com/docker/swarm/pkg/authZ/headers"
 	"github.com/docker/swarm/pkg/authZ/utils"
@@ -37,6 +39,13 @@ func doHTTPreq(reqType, url, jsonBody string, headers map[string]string) *http.R
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
+		for k, v := range headers {
+			log.Debug("k: " + k + ", v: " + v)
+			req.Header.Set(k, v)
+		}
+		log.Debug("jsonBody: " + jsonBody)
+		log.Debug("url: " + url)
+		
 		panic(err)
 	}
 	return resp
@@ -66,7 +75,7 @@ func (this *KeyStoneAPI) Init() error {
 // 1- Validate Token
 // 2- Get ACLs or Lable for your valid token
 // 3- Set up cache to save Keystone call
-func (this *KeyStoneAPI) ValidateRequest(cluster cluster.Cluster, eventType states.EventEnum, w http.ResponseWriter, r *http.Request, reqBody []byte) (states.ApprovalEnum, string, error) {
+func (this *KeyStoneAPI) ValidateRequest(cluster cluster.Cluster, eventType states.EventEnum, w http.ResponseWriter, r *http.Request, reqBody []byte) (states.ApprovalEnum, *utils.ValidationOutPutDTO) {
 
 	tokenToValidate := r.Header.Get(headers.AuthZTokenHeaderName)
 	tokenToValidate = strings.TrimSpace(tokenToValidate)
@@ -76,49 +85,52 @@ func (this *KeyStoneAPI) ValidateRequest(cluster cluster.Cluster, eventType stat
 	valid := queryKeystone(tenantIdToValidate, tokenToValidate)
 
 	if !valid {
-		return states.NotApproved, "", errors.New("Keystone validation failed. Not Authorized!")
+		return states.NotApproved, &utils.ValidationOutPutDTO{ErrorMessage: "Not Authorized!"}
 	}
 
 	if isAdminTenant(tenantIdToValidate) {
-		return states.Admin, "", nil
+		return states.Admin, nil
 	}
 
-	//SHORT CIRCUIT KEYSTONE
-//	tenantIdToValidate = tokenToValidate
 	switch eventType {
 	case states.ContainerCreate:
 		err := this.quotaAPI.ValidateQuota(cluster, reqBody, tenantIdToValidate)
 		if err != nil {
-			return states.QuotaLimit, "", err
+			return states.NotApproved, &utils.ValidationOutPutDTO{ErrorMessage: err.Error()}
 		}
-		return states.Approved, "", nil
+		valid, dto := utils.CheckLinksOwnerShip(cluster, tokenToValidate, r, reqBody)
+		log.Debug(valid)
+		log.Debug(dto)
+		log.Debug("-----------------")
+		return states.Approved, dto
 	case states.ContainersList:
-		return states.ConditionFilter, "", nil
+		return states.ConditionFilter, nil
 	case states.Unauthorized:
-		return states.NotApproved, "", nil
+		return states.NotApproved, &utils.ValidationOutPutDTO{ErrorMessage: "Not Authorized!"}
 	default:
 		//CONTAINER_INSPECT / CONTAINER_OTHERS / STREAM_OR_HIJACK / PASS_AS_IS
-		//INFO is make
-		isOwner, id := utils.CheckOwnerShip(cluster, tenantIdToValidate, r)
+		isOwner, dto := utils.CheckOwnerShip(cluster, tenantIdToValidate, r)
 		if isOwner {
-			return states.Approved, id, nil
+			return states.Approved, dto
 		}
 	}
 	log.Debug("SHOULD NOT BE HERE....")
-	return states.NotApproved, "", errors.New("SHOULD NOT BE HERE. Not Authorized!")
+	return states.NotApproved, &utils.ValidationOutPutDTO{ErrorMessage: "Not Authorized!"}
 }
 
 func isAdminTenant(tenantIdToValidate string) bool {
-	//Kenneth - Determine who is admin using keystone...
-	return false
+	log.Info("isAdminTenant(" + tenantIdToValidate + ")")
+	swarmAdminTenantId := os.Getenv("SWARM_ADMIN_TENANT_ID")
+	log.Debug("SWARM_ADMIN_TENANT_ID: " + swarmAdminTenantId)
+	log.Debug("isAdminTenant: ", swarmAdminTenantId == tenantIdToValidate)
+	return swarmAdminTenantId == tenantIdToValidate
 }
 
 //SHORT CIRCUIT KEYSTONE
-func queryKeystone(tenantIdToValidate string, tokenToValidate string) bool {
-	return true
-}
+//func queryKeystone(tenantIdToValidate string, tokenToValidate string) bool {
+//	return true
+//}
 
-/*
 func queryKeystone(tenantIdToValidate string, tokenToValidate string) bool {
 	var headers = map[string]string{
 		headers.AuthZTokenHeaderName: tokenToValidate,
@@ -135,13 +147,32 @@ func queryKeystone(tenantIdToValidate string, tokenToValidate string) bool {
 
 	jsonParsed, _ := gabs.ParseJSON(body)
 	children, _ := jsonParsed.S("tenants").Children()
-
-	for i := 0; i < len(children); i++ {
-		if children[i].Path("id").Data().(string) == tenantIdToValidate {
-			return true
-		}
+	var isSwarmMember bool = false
+	var swarmMembersTenantId string = os.Getenv("SWARM_MEMBERS_TENANT_ID")
+	if swarmMembersTenantId == "" {
+		log.Info("SWARM_MEMBERS_TENANT_ID is blank")
+		isSwarmMember = true
 	}
-	log.Debug("Tenant not found")
-	return false
+	var isTenantFound bool = false
+	if tenantIdToValidate != swarmMembersTenantId {
+		for i := 0; i < len(children); i++ {
+			if children[i].Path("id").Data().(string) == tenantIdToValidate {
+				isTenantFound = true
+			} else if !isSwarmMember {
+				if children[i].Path("id").Data().(string) == swarmMembersTenantId {
+					isSwarmMember = true
+				}
+			}
+			if isTenantFound && isSwarmMember {
+				log.Info("isTenantFound and isSwarmMember are true")
+				break
+			}
+		}
+	} else {
+		log.Debug("error: Tenant trying use SWARM_MEMBERS_TENANT_ID")
+	}
+	if !(isTenantFound && isSwarmMember) {
+		log.Debug("error: Tenant not eligible")
+	}
+	return isTenantFound && isSwarmMember
 }
-*/

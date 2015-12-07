@@ -21,6 +21,9 @@
         "ExposedPorts": {
             "6379/tcp": {}
         },
+	"HostConfig": {
+		"Links": ["stupefied_swanson:redis"]
+      	},
         "Volumes": {
             "/data": {}
         }
