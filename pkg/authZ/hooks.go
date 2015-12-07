@@ -9,7 +9,7 @@ import (
 	"github.com/docker/swarm/pkg/authZ/keystone"
 	"github.com/docker/swarm/pkg/authZ/states"
 	"io/ioutil"
-	"fmt"
+//	"fmt"
 )
 
 //Hooks - Entry point to AuthZ mechanisem
@@ -47,8 +47,7 @@ func (*Hooks) PrePostAuthWrapper(cluster cluster.Cluster, next http.Handler) htt
 		if eventType == states.PassAsIs || isAllowed == states.Approved || isAllowed == states.ConditionFilter {
 			authZAPI.HandleEvent(eventType, w, r, next, containerID, reqBody)
 		} else {
-			w.WriteHeader(http.StatusUnauthorized)
-			w.Write([]byte(fmt.Sprintf("%v", err)))
+			http.Error(w, err.Error(), http.StatusBadRequest)
 		}
 	})
 }
@@ -73,6 +72,9 @@ func eventParse(r *http.Request) states.EventEnum {
 	}
 	if strings.Contains(r.RequestURI, "/containers") {
 		return states.ContainerOthers
+	}
+	if strings.Contains(r.RequestURI, "/info") {
+		return states.PassAsIs
 	}
 
 //	if strings.Contains(r.RequestURI, "Will add to here all APIs we explicitly want to block") {

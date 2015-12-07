@@ -49,6 +49,9 @@ func ModifyRequest(r *http.Request, body io.Reader, urlStr string, containerID s
 func CheckOwnerShip(cluster cluster.Cluster, tenantName string, r *http.Request) (bool, string) {
 	containers := cluster.Containers()
 	log.Debug("got name: ", mux.Vars(r)["name"])
+	if mux.Vars(r)["name"] == ""{
+		return true, ""
+	}
 	tenantSet := make(map[string]bool)
 	for _, container := range containers {
 		if "/"+mux.Vars(r)["name"]+tenantName == container.Info.Name {

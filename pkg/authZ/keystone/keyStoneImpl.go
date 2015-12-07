@@ -98,6 +98,7 @@ func (this *KeyStoneAPI) ValidateRequest(cluster cluster.Cluster, eventType stat
 		return states.NotApproved, "", nil
 	default:
 		//CONTAINER_INSPECT / CONTAINER_OTHERS / STREAM_OR_HIJACK / PASS_AS_IS
+		//INFO is make
 		isOwner, id := utils.CheckOwnerShip(cluster, tenantIdToValidate, r)
 		if isOwner {
 			return states.Approved, id, nil
