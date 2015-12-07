@@ -1,13 +1,12 @@
 #!/bin/bash
 
-KEYSTONE_IP='cloud.lab.fi-ware.org:4730'
-
-DOCKER_CONF=~/.docker/config.json   #default file is docker-compose config file
+KEYSTONE_IP=${EXEC_KEYSTONE_IP:-cloud.lab.fi-ware.org:4730}
+CONFIG_DIRECTORY=${DOCKER_CONF:-~/.docker}
 
 verbose=false
 print_env() {
     echo '---------------------------'
-    echo 'Docker conf file:         '$DOCKER_CONF
+    echo 'Docker conf file:         '$CONFIG_DIRECTORY
     echo 'OpenStack Tenant name:    '$OS_TENANT_NAME
     echo 'OpenStack Username:       '$OS_USERNAME
     echo 'OpenStack Password:       '$OS_PASSWORD
@@ -25,12 +24,12 @@ display_usage() {
     echo -e "\nIn case environment missing those variables those must be supplied as script arguments"
     echo -e "If no arguments specified will try to use defaults below:"
     print_env
-    echo -e "\nUsage:\n$0 [-f CONFIG_FILE] [-t TENANT_NAME] [-u USER_NAME] [-p PASSWORD] [-a KEYSTONE_IP] [-v|-verbose] [-h|-help]\n"
-    echo -e  "\nExample:\n$0 -f ~/.docker/config.json -d tcp://0.0.0.0:2376 -t \"my cloud\" -u myfiwareuser -p myfiwarepassword -a cloud.lab.fi-ware.org:4730 \n"
+    echo -e "\nUsage:\n$0 [-d CONFIG_DIRECTORY] [-t TENANT_NAME] [-u USER_NAME] [-p PASSWORD] [-a KEYSTONE_IP] [-v|-verbose] [-h|-help]\n"
+    echo -e  "\nExample:\n$0 -d ~/.docker -t \"my cloud\" -u myfiwareuser -p myfiwarepassword -a cloud.lab.fi-ware.org:4730 \n"
 } 
 
 validate_env() {
-    [[ $DOCKER_CONF && $OS_TENANT_NAME && $OS_USERNAME && $OS_PASSWORD && $KEYSTONE_IP ]] || { echo -e 'ERROR! Missing one or more requiered variables\n\n'; print_env; exit 1; }
+    [[ $OS_TENANT_NAME && $OS_USERNAME && $OS_PASSWORD && $KEYSTONE_IP ]] || { echo -e 'ERROR! Missing one or more requiered variables\n\n'; print_env; exit 1; }
 }
 
 while getopts ":hhelp:f:d:t:u:p:a:vverbose" opt; do
@@ -39,8 +38,8 @@ while getopts ":hhelp:f:d:t:u:p:a:vverbose" opt; do
                 display_usage >&2
                 exit 1
                 ;;
-          f)
-                DOCKER_CONF=$OPTARG
+        d)
+                CONFIG_DIRECTORY=${OPTARG}
                 ;;                
           t)
                 OS_TENANT_NAME=$OPTARG
@@ -68,6 +67,8 @@ while getopts ":hhelp:f:d:t:u:p:a:vverbose" opt; do
       esac
 done
 
+mkdir -p $CONFIG_DIRECTORY
+DOCKER_CONF="${CONFIG_DIRECTORY}/config.json"
 validate_env
 
 [[ $KEYSTONE_IP != *:* ]] && KEYSTONE_IP=$KEYSTONE_IP:5000
@@ -88,10 +89,26 @@ tenant=${test[1]}
 $verbose && echo -e "\nTOKEN: $token"
 $verbose && echo -e "TENANT: $tenant\n"
 
-sed -i '/X-Auth-Token/c\            \"X-Auth-Token\": \'${token}'\,' $DOCKER_CONF
-sed -i '/X-Auth-TenantId/c\            "X-Auth-TenantId": '$tenant'' $DOCKER_CONF
+#validate returned token
+[ "$token" ] || exit 1
+
+test=`echo $token|tr -d '\"'`
+out=`curl -s -X GET {$KEYSTONE_IP}tenants -H "X-Auth-Token: $test" -H "Content-Type: application/json"|grep ${tenant}`
+$verbose && echo "Validating token using: curl -s -X GET {$KEYSTONE_IP}tenants -H \"X-Auth-Token: $test\" -H \"Content-Type: application/json\""
+[ "$out" ] || exit 1
+
+if [ -f ${DOCKER_CONF} ]; then
+	$verbose && echo "File ${DOCKER_CONF} exist"
+	sed -i '/X-Auth-Token/c\            "X-Auth-Token": '${token}'' $DOCKER_CONF
+	sed -i '/X-Auth-TenantId/c\            "X-Auth-TenantId": '${tenant}',' $DOCKER_CONF
+else
+	$verbose && echo "File ${DOCKER_CONF} not exist"
+	echo -e "{\n\t\"HttpHeaders\": {\n\t\t\"X-Auth-TenantId\": ${tenant},\n\t\t\"X-Auth-Token\": ${token}\n\t},\n\t\"quotas\":{\n\t\t\"Memory\": 128\n\t}\n}" > $DOCKER_CONF
+fi
 
 $verbose && echo -e '\n\n---------------------------'
-$verbose && echo 'New config file: '
+$verbose && echo "New config file: ${DOCKER_CONF}"
 $verbose && echo '---------------------------\n'
 $verbose && cat $DOCKER_CONF
+
+exit 0
