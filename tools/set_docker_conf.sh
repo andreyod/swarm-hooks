@@ -1,6 +1,6 @@
 #!/bin/bash
 
-KEYSTONE_IP=${EXEC_KEYSTONE_IP:-cloud.lab.fi-ware.org:4730}
+KEYSTONE_IP=${KEYSTONE_IP:-http://cloud.lab.fi-ware.org:4730}
 CONFIG_DIRECTORY=${DOCKER_CONF:-~/.docker}
 
 verbose=false
@@ -71,10 +71,11 @@ mkdir -p $CONFIG_DIRECTORY
 DOCKER_CONF="${CONFIG_DIRECTORY}/config.json"
 validate_env
 
-[[ $KEYSTONE_IP != *:* ]] && KEYSTONE_IP=$KEYSTONE_IP:5000
-[[ $KEYSTONE_IP != *:*/ ]] && KEYSTONE_IP=$KEYSTONE_IP/
-[[ $KEYSTONE_IP != *:*/*/ ]] && KEYSTONE_IP=${KEYSTONE_IP}v2.0/
-[[ $KEYSTONE_IP != http:*:*/*/ ]] && KEYSTONE_IP=http://$KEYSTONE_IP
+[[ $KEYSTONE_IP != http://* ]] && KEYSTONE_IP=http://$KEYSTONE_IP
+[[ $KEYSTONE_IP != http://*:* ]] && KEYSTONE_IP=$KEYSTONE_IP:5000
+[[ $KEYSTONE_IP != http://*:*/ ]] && KEYSTONE_IP=$KEYSTONE_IP/
+[[ $KEYSTONE_IP != http://*:*/*/ ]] && KEYSTONE_IP=${KEYSTONE_IP}v2.0/
+
 
 $verbose && echo -e '\n---------------------------'
 $verbose && echo 'Using following environment'
@@ -82,6 +83,8 @@ $verbose && print_env
 
 out=`curl -s -X POST {$KEYSTONE_IP}tokens -H "Content-Type: application/json" -d '{"auth": {"tenantName": "'"$OS_TENANT_NAME"'", "passwordCredentials":{"username": "'"$OS_USERNAME"'", "password": "'"$OS_PASSWORD"'"}}}'| python -m json.tool|grep id|tail -3|head -2|awk -F"\"id\":" '{print $1,$2}'|awk -F"," '{print $1,$2}'`
 
+$verbose && echo "running curl -s -X POST {$KEYSTONE_IP}tokens -H \"Content-Type: application/json\" -d '{\"auth\": {\"tenantName\": \"'\"$OS_TENANT_NAME\"'\", \"passwordCredentials\":{\"username\": \"'\"$OS_USERNAME\"'\", \"password\": \"'\"$OS_PASSWORD\"'\"}}}'| python -m json.tool|grep id|tail -3|head -2|awk -F\"\"id\":\" '{print $1,$2}'|awk -F\",\" '{print $1,$2}'"
+$verbose && echo $out
 test=( $out )
 token=${test[0]}
 tenant=${test[1]}

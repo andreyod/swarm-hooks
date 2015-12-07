@@ -26,7 +26,8 @@ import (
 type ValidationOutPutDTO struct {
 	ContainerID string
 	Links       map[string]string
-	//Quota can live here too?
+	ErrorMessage string
+	//Quota can live here too? Currently quota needs only raise error
 	//What else
 }
 
@@ -95,7 +96,7 @@ func CheckOwnerShip(cluster cluster.Cluster, tenantName string, r *http.Request)
 	containers := cluster.Containers()
 	log.Debug("got name: ", mux.Vars(r)["name"])
 	if mux.Vars(r)["name"] == ""{
-		return true, ""
+		return true, nil
 	}
 	tenantSet := make(map[string]bool)
 	for _, container := range containers {

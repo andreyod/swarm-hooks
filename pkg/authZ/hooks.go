@@ -9,7 +9,6 @@ import (
 	"github.com/docker/swarm/pkg/authZ/keystone"
 	"github.com/docker/swarm/pkg/authZ/states"
 	"io/ioutil"
-//	"fmt"
 )
 
 //Hooks - Entry point to AuthZ mechanisem
@@ -38,16 +37,18 @@ func (*Hooks) PrePostAuthWrapper(cluster cluster.Cluster, next http.Handler) htt
 		eventType := eventParse(r)
 		defer r.Body.Close()
 		reqBody, _ := ioutil.ReadAll(r.Body)
-		isAllowed, containerID, err := aclsAPI.ValidateRequest(cluster, eventType, w, r, reqBody)
+		isAllowed, dto := aclsAPI.ValidateRequest(cluster, eventType, w, r, reqBody)
 		if isAllowed == states.Admin {
 			next.ServeHTTP(w, r)
 			return
 		}
 		//TODO - all kinds of conditionals
 		if eventType == states.PassAsIs || isAllowed == states.Approved || isAllowed == states.ConditionFilter {
-			authZAPI.HandleEvent(eventType, w, r, next, containerID, reqBody)
+			authZAPI.HandleEvent(eventType, w, r, next, dto, reqBody)
 		} else {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			log.Debug("Return failure")
+			http.Error(w, dto.ErrorMessage, http.StatusBadRequest)
+			log.Debug("Returned failure")
 		}
 	})
 }
@@ -74,9 +75,8 @@ func eventParse(r *http.Request) states.EventEnum {
 		return states.ContainerOthers
 	}
 	if strings.Contains(r.RequestURI, "/info") {
-		return states.PassAsIs
+        return states.PassAsIs
 	}
-
 //	if strings.Contains(r.RequestURI, "Will add to here all APIs we explicitly want to block") {
 //		return states.NotSupported
 //	}
