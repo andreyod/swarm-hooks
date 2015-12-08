@@ -102,8 +102,11 @@ $verbose && echo "Validating token using: curl -s -X GET {$KEYSTONE_IP}tenants -
 
 if [ -f ${DOCKER_CONF} ]; then
 	$verbose && echo "File ${DOCKER_CONF} exist"
-	sed -i '/X-Auth-Token/c\            "X-Auth-Token": '${token}'' $DOCKER_CONF
-	sed -i '/X-Auth-TenantId/c\            "X-Auth-TenantId": '${tenant}',' $DOCKER_CONF
+	sed -i '/\,/! s/.*\"X-Auth-TenantId\".*/            "X-Auth-TenantId": '${tenant}'/' $DOCKER_CONF
+	sed -i '/\,/ s/.*\"X-Auth-TenantId\".*/            "X-Auth-TenantId": '${tenant}',/' $DOCKER_CONF
+
+	sed -i '/\,/! s/.*\"X-Auth-Token\".*/            "X-Auth-Token": '${token}'/' $DOCKER_CONF
+	sed -i '/\,/ s/.*\"X-Auth-Token\".*/            "X-Auth-Token": '${token}',/' $DOCKER_CONF
 else
 	$verbose && echo "File ${DOCKER_CONF} not exist"
 	echo -e "{\n\t\"HttpHeaders\": {\n\t\t\"X-Auth-TenantId\": ${tenant},\n\t\t\"X-Auth-Token\": ${token}\n\t},\n\t\"quotas\":{\n\t\t\"Memory\": 128\n\t}\n}" > $DOCKER_CONF
@@ -111,7 +114,7 @@ fi
 
 $verbose && echo -e '\n\n---------------------------'
 $verbose && echo "New config file: ${DOCKER_CONF}"
-$verbose && echo '---------------------------\n'
+$verbose && echo -e '---------------------------\n'
 $verbose && cat $DOCKER_CONF
 
 exit 0
