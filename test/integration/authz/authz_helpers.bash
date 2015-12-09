@@ -1,12 +1,9 @@
 #!/bin/bash
 
 #FiWare credentials
-export OS_TENANT_NAME=''
-export OS_USERNAME=''
-export OS_PASSWORD=''
-export TENANT1=''
-export TENANT2=''
-export KEYSTONE_IP='cloud.lab.fi-ware.org:4730'
+
+export TENANT1=$TENANT_NAME
+#export KEYSTONE_IP='cloud.lab.fi-ware.org:4730'
 
 #export DISCOVERY_FILE="/root/work/src/github.com/docker/swarm/my_cluster"
 #export DISCOVERY="--multiTenant file://$DISCOVERY_FILE"
@@ -27,13 +24,26 @@ SWARM_BINARY=${SWARM_BINARY:-${SWARM_ROOT}/swarm}
 load ../helpers
 
 function loginToKeystoneTenant1(){
-	export OS_TENANT_NAME=$TENANT1
-	../../../tools/set_docker_conf.sh
+	export $TENANT_NAME=$TENANT1
+	$INTEGRATION_ROOT/../../tools/set_docker_conf.bash
+}
+
+function getAnotherTenant(){
+    OUTPUT="$(get_tenants)"
+    IFS=","
+    for tenant in $OUTPUT;
+    do
+        tenant=`echo $tenant | xargs`
+        if [[ "$tenant" != "$1" ]] ; then
+            echo $tenant
+            return
+        fi
+    done
 }
 
 function loginToKeystoneTenant2(){
-	export OS_TENANT_NAME=$TENANT2
-	../../../tools/set_docker_conf.sh
+	export TENANT_NAME=$(getAnotherTenant "$TENANT_NAME")
+	$INTEGRATION_ROOT/../../tools/set_docker_conf.bash
 }
 
 # Start the swarm manager in background.

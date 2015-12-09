@@ -4,13 +4,14 @@ KEYSTONE_IP=${KEYSTONE_IP:-http://cloud.lab.fi-ware.org:4730}
 CONFIG_DIRECTORY=${DOCKER_CONF:-~/.docker}
 
 verbose=false
+
 print_env() {
     echo '---------------------------'
-    echo 'Docker conf file:         '$CONFIG_DIRECTORY
-    echo 'OpenStack Tenant name:    '$OS_TENANT_NAME
-    echo 'OpenStack Username:       '$OS_USERNAME
-    echo 'OpenStack Password:       '$OS_PASSWORD
-    echo 'Keystone IP:              '$KEYSTONE_IP
+    echo 'CONFIG_DIRECTORY:	'$CONFIG_DIRECTORY
+    echo 'TENANT_NAME:		'$TENANT_NAME
+    echo 'USERNAME:		'$USERNAME
+    echo 'PASSWORD:		'$PASSWORD
+    echo 'KEYSTONE_IP:		'$KEYSTONE_IP
     echo '---------------------------'
 }
 
@@ -18,7 +19,7 @@ display_usage() {
     echo -e "\nThis script updates docker config file with Keystone"
 	echo -e "tenant/token variables Keystone server IP must be specified"
     echo -e "either as script input or added to environment as KEYSTONE_IP"
-    echo -e "variable. The rest (OS_USERNAME, OS_PASSWORD...etc.) the script"
+    echo -e "variable. The rest (USERNAME, PASSWORD...etc.) the script"
     echo -e "may get from environment, so in most cases it's enough to"
     echo -e "source OpenStack openrc file"
     echo -e "\nIn case environment missing those variables those must be supplied as script arguments"
@@ -29,7 +30,15 @@ display_usage() {
 } 
 
 validate_env() {
-    [[ $OS_TENANT_NAME && $OS_USERNAME && $OS_PASSWORD && $KEYSTONE_IP ]] || { echo -e 'ERROR! Missing one or more requiered variables\n\n'; print_env; exit 1; }
+    [[ $TENANT_NAME && $USERNAME && $PASSWORD && $KEYSTONE_IP ]] || { print_env; echo -e 'ERROR! Missing one or more required variables.\nUse -h to get help and usage information.\n'; exit 1; }
+}
+
+get_tenants() {
+	out=`curl -s -X GET ${KEYSTONE_IP}tenants -H "X-Auth-Token: $test" -H "Content-Type: application/json"|python -m json.tool`
+	
+	tenants=`echo $out | python -c "import json,sys;obj=json.load(sys.stdin);print [str(xxx['name']) for xxx in obj['tenants']]" | tr -d "[]'"`
+    echo "$tenants"	
+	#echo "$tenants" | sed -r 's/(\[|\])//g'
 }
 
 while getopts ":hhelp:f:d:t:u:p:a:vverbose" opt; do
@@ -38,17 +47,17 @@ while getopts ":hhelp:f:d:t:u:p:a:vverbose" opt; do
                 display_usage >&2
                 exit 1
                 ;;
-        d)
+          d)
                 CONFIG_DIRECTORY=${OPTARG}
                 ;;                
           t)
-                OS_TENANT_NAME=$OPTARG
+                TENANT_NAME=$OPTARG
                 ;;
           u)
-                OS_USERNAME=$OPTARG
+                USERNAME=$OPTARG
                 ;;
           p)
-                OS_PASSWORD=$OPTARG
+                PASSWORD=$OPTARG
                 ;;
           a)
                 KEYSTONE_IP=$OPTARG
@@ -81,9 +90,9 @@ $verbose && echo -e '\n---------------------------'
 $verbose && echo 'Using following environment'
 $verbose && print_env
 
-out=`curl -s -X POST {$KEYSTONE_IP}tokens -H "Content-Type: application/json" -d '{"auth": {"tenantName": "'"$OS_TENANT_NAME"'", "passwordCredentials":{"username": "'"$OS_USERNAME"'", "password": "'"$OS_PASSWORD"'"}}}'| python -m json.tool|grep id|tail -3|head -2|awk -F"\"id\":" '{print $1,$2}'|awk -F"," '{print $1,$2}'`
+out=`curl -s -X POST ${KEYSTONE_IP}tokens -H "Content-Type: application/json" -d '{"auth": {"tenantName": "'"$TENANT_NAME"'", "passwordCredentials":{"username": "'"$USERNAME"'", "password": "'"$PASSWORD"'"}}}'| python -m json.tool|grep id|tail -3|head -2|awk -F"\"id\":" '{print $1,$2}'|awk -F"," '{print $1,$2}'`
 
-$verbose && echo "running curl -s -X POST {$KEYSTONE_IP}tokens -H \"Content-Type: application/json\" -d '{\"auth\": {\"tenantName\": \"'\"$OS_TENANT_NAME\"'\", \"passwordCredentials\":{\"username\": \"'\"$OS_USERNAME\"'\", \"password\": \"'\"$OS_PASSWORD\"'\"}}}'| python -m json.tool|grep id|tail -3|head -2|awk -F\"\"id\":\" '{print $1,$2}'|awk -F\",\" '{print $1,$2}'"
+$verbose && echo "running curl -s -X POST ${KEYSTONE_IP}tokens -H \"Content-Type: application/json\" -d '{\"auth\": {\"tenantName\": \"'\"$TENANT_NAME\"'\", \"passwordCredentials\":{\"username\": \"'\"$USERNAME\"'\", \"password\": \"'\"$PASSWORD\"'\"}}}'| python -m json.tool|grep id|tail -3|head -2|awk -F\"\"id\":\" '{print $1,$2}'|awk -F\",\" '{print $1,$2}'"
 $verbose && echo $out
 test=( $out )
 token=${test[0]}
@@ -93,12 +102,12 @@ $verbose && echo -e "\nTOKEN: $token"
 $verbose && echo -e "TENANT: $tenant\n"
 
 #validate returned token
-[ "$token" ] || exit 1
+[ "$token" ] || { echo $out; $verbose && print_env; echo -e 'ERROR Getting token from keystone!\n'; exit 1; }
 
 test=`echo $token|tr -d '\"'`
-out=`curl -s -X GET {$KEYSTONE_IP}tenants -H "X-Auth-Token: $test" -H "Content-Type: application/json"|grep ${tenant}`
-$verbose && echo "Validating token using: curl -s -X GET {$KEYSTONE_IP}tenants -H \"X-Auth-Token: $test\" -H \"Content-Type: application/json\""
-[ "$out" ] || exit 1
+out=`curl -s -X GET ${KEYSTONE_IP}tenants -H "X-Auth-Token: $test" -H "Content-Type: application/json"|grep ${tenant}`
+$verbose && echo "Validating token using: curl -s -X GET ${KEYSTONE_IP}tenants -H \"X-Auth-Token: $test\" -H \"Content-Type: application/json\""
+[ "$out" ] || { echo $out; $verbose && print_env; echo -e "ERROR Validating token ${token}!\n"; exit 1; }
 
 if [ -f ${DOCKER_CONF} ]; then
 	$verbose && echo "File ${DOCKER_CONF} exist"
@@ -117,4 +126,5 @@ $verbose && echo "New config file: ${DOCKER_CONF}"
 $verbose && echo -e '---------------------------\n'
 $verbose && cat $DOCKER_CONF
 
-exit 0
+[ "$token" ]
+#exit 0

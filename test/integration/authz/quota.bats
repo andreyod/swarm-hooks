@@ -1,6 +1,7 @@
 #!/usr/bin/env bats
 
 load authz_helpers
+load ../../../tools/set_docker_conf
 
 function teardown() {
 	stop_docker
@@ -81,12 +82,12 @@ function teardown() {
 }
 
 @test "wrong keystone credentials" {
-	temp=$TENANT1 
-	export TENANT1='wrong tenantname'
+	temp=$TENANT_NAME 
+	export TENANT_NAME='wrong tenantname'
 
 	run loginToKeystoneTenant1
 	[ "$status" -ne 0 ]
-	export TENANT1=$temp
+	export TENANT_NAME=$temp
 	run loginToKeystoneTenant1
 	[ "$status" -eq 0 ]
 
