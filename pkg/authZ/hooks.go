@@ -74,9 +74,6 @@ func eventParse(r *http.Request) states.EventEnum {
 	if strings.Contains(r.RequestURI, "/containers") {
 		return states.ContainerOthers
 	}
-	if strings.Contains(r.RequestURI, "/info") {
-        return states.PassAsIs
-	}
 //	if strings.Contains(r.RequestURI, "Will add to here all APIs we explicitly want to block") {
 //		return states.NotSupported
 //	}

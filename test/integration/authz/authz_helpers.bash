@@ -23,6 +23,11 @@ SWARM_BINARY=${SWARM_BINARY:-${SWARM_ROOT}/swarm}
 
 load ../helpers
 
+# Waits until the given docker engine API becomes reachable.
+function wait_until_reachable() {
+	retry 10 1 docker -H $1 ps
+}
+
 function loginToKeystoneTenant1(){
 	export $TENANT_NAME=$TENANT1
 	$INTEGRATION_ROOT/../../tools/set_docker_conf.bash
