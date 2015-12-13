@@ -82,7 +82,7 @@ function teardown() {
 }
 
 @test "wrong keystone credentials" {
-	temp=$TENANT_NAME 
+	temp=$TENANT_NAME
 	export TENANT_NAME='wrong tenantname'
 
 	run loginToKeystoneTenant1

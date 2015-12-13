@@ -48,3 +48,6 @@ export DOCKER_BINARY="${tmp}/docker"
 
 # Run the tests.
 execute time bats --tap $TESTS
+
+# Kill docker
+execute pkill -TERM -P $DOCKER_PID
