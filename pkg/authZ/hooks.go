@@ -1,6 +1,7 @@
 package authZ
 
 import (
+	"bytes"
 	"net/http"
 	"strings"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/docker/swarm/pkg/authZ/keystone"
 	"github.com/docker/swarm/pkg/authZ/states"
 	"io/ioutil"
+	"github.com/docker/swarm/pkg/authZ/utils"
 )
 
 //Hooks - Entry point to AuthZ mechanisem
@@ -37,6 +39,12 @@ func (*Hooks) PrePostAuthWrapper(cluster cluster.Cluster, next http.Handler) htt
 		eventType := eventParse(r)
 		defer r.Body.Close()
 		reqBody, _ := ioutil.ReadAll(r.Body)
+
+		r, e1 := utils.ModifyRequest(r, bytes.NewReader(reqBody), "", "")
+		if e1 != nil {
+			log.Error(e1)
+		}
+
 		isAllowed, dto := aclsAPI.ValidateRequest(cluster, eventType, w, r, reqBody)
 		if isAllowed == states.Admin {
 			next.ServeHTTP(w, r)
@@ -71,9 +79,16 @@ func eventParse(r *http.Request) states.EventEnum {
 	if strings.Contains(r.RequestURI, "/containers") && strings.HasSuffix(r.RequestURI, "/json") {
 		return states.ContainerInspect
 	}
+	if strings.Contains(r.RequestURI, "/containers") && strings.HasSuffix(r.RequestURI, "/start") {
+		return states.PassAsIs
+	}
 	if strings.Contains(r.RequestURI, "/containers") {
 		return states.ContainerOthers
 	}
+	if strings.Contains(r.RequestURI, "/images") && strings.HasSuffix(r.RequestURI, "/json") {
+		return states.PassAsIs
+	}
+
 //	if strings.Contains(r.RequestURI, "Will add to here all APIs we explicitly want to block") {
 //		return states.NotSupported
 //	}
