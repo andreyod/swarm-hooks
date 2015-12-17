@@ -22,15 +22,15 @@ type DefaultACLsImpl struct{}
 ValidateRequest - Who wants to do what - allow or not
 */
 func (*DefaultACLsImpl) ValidateRequest(cluster cluster.Cluster, eventType states.EventEnum, w http.ResponseWriter, r *http.Request, reqBody []byte) (states.ApprovalEnum, *utils.ValidationOutPutDTO) {
-	tokenToValidate := r.Header.Get(headers.AuthZTokenHeaderName)
+	tenantIdToValidate := r.Header.Get(headers.AuthZTenantIdHeaderName)
 
-	if tokenToValidate == "" {
+	if tenantIdToValidate == "" {
 		return states.NotApproved, &utils.ValidationOutPutDTO{ErrorMessage: "Not Authorized!"}
 	}
 	//TODO - Duplication revise
 	switch eventType {
 	case states.ContainerCreate:
-		valid, dto := utils.CheckLinksOwnerShip(cluster, tokenToValidate, r, reqBody)
+		valid, dto := utils.CheckLinksOwnerShip(cluster, tenantIdToValidate, r, reqBody)
 		log.Debug(valid)
 		log.Debug(dto)
 		log.Debug("-----------------")
@@ -41,7 +41,7 @@ func (*DefaultACLsImpl) ValidateRequest(cluster cluster.Cluster, eventType state
 		return states.NotApproved, &utils.ValidationOutPutDTO{ErrorMessage: "Not Authorized!"}
 	default:
 		//CONTAINER_INSPECT / CONTAINER_OTHERS / STREAM_OR_HIJACK / PASS_AS_IS
-		isOwner, dto := utils.CheckOwnerShip(cluster, tokenToValidate, r)
+		isOwner, dto := utils.CheckOwnerShip(cluster, tenantIdToValidate, r)
 		if isOwner {
 			return states.Approved, dto
 		}

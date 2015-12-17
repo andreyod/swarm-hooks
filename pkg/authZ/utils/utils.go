@@ -70,13 +70,16 @@ func CheckLinksOwnerShip(cluster cluster.Cluster, tenantName string, r *http.Req
 
 		pair := child.Data().(string)
 		linkPair := strings.Split(pair, ":")
-		log.Debug(pair)
+		link := strings.TrimSpace(linkPair[0])
+		log.Debug("Pair:" + pair)
 		log.Debug(linkPair)
+		log.Debug("Link:" + link)
 		for _, container := range containers {
-			log.Debug(container.Info.Name)
-			if "/"+linkPair[0]+tenantName == container.Info.Name || "/"+linkPair[0] == container.Info.Name {
-				log.Debug("#####################################")
-				linkSet[container.Info.Id] = linkPair[0]
+			log.Debug("containerName: " + container.Info.Name)
+			log.Debug("Comparing with: " + "/"+link+tenantName)
+			log.Debug("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
+			if "/"+link+tenantName == container.Info.Name || "/"+link == container.Info.Name {
+				linkSet[container.Info.Id] = link
 				l++
 			}
 		}

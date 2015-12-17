@@ -37,7 +37,8 @@ func (*DefaultImp) HandleEvent(eventType states.EventEnum, w http.ResponseWriter
 		for cId, _ := range dto.Links {
 			log.Debug(cId)
 			cName := dto.Links[cId]
-			newBody = bytes.Replace(newBody, []byte(cName+":"), []byte(cId+":"), 1)
+			log.Debug(cName)
+			newBody = bytes.Replace(newBody, []byte(cName+" :"), []byte(cId+":"), -1)
 		}
 
 		log.Debug("New body: " + string(newBody))

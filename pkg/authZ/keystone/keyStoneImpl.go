@@ -79,7 +79,7 @@ func (this *KeyStoneAPI) ValidateRequest(cluster cluster.Cluster, eventType stat
 
 	tokenToValidate := r.Header.Get(headers.AuthZTokenHeaderName)
 	tokenToValidate = strings.TrimSpace(tokenToValidate)
-	tenantIdToValidate := r.Header.Get(headers.AuthZTenantIdHeaderName)
+	tenantIdToValidate := strings.TrimSpace(r.Header.Get(headers.AuthZTenantIdHeaderName))
 
 	log.Debugf("Going to validate token:  %v, for tenant Id: %v, ", tokenToValidate, tenantIdToValidate)
 	valid := queryKeystone(tenantIdToValidate, tokenToValidate)
@@ -98,7 +98,7 @@ func (this *KeyStoneAPI) ValidateRequest(cluster cluster.Cluster, eventType stat
 		if err != nil {
 			return states.NotApproved, &utils.ValidationOutPutDTO{ErrorMessage: err.Error()}
 		}
-		valid, dto := utils.CheckLinksOwnerShip(cluster, tokenToValidate, r, reqBody)
+		valid, dto := utils.CheckLinksOwnerShip(cluster, tenantIdToValidate, r, reqBody)
 		log.Debug(valid)
 		log.Debug(dto)
 		log.Debug("-----------------")
