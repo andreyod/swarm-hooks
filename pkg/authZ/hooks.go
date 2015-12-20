@@ -79,9 +79,6 @@ func eventParse(r *http.Request) states.EventEnum {
 	if strings.Contains(r.RequestURI, "/containers") && strings.HasSuffix(r.RequestURI, "/json") {
 		return states.ContainerInspect
 	}
-	if strings.Contains(r.RequestURI, "/containers") && strings.HasSuffix(r.RequestURI, "/start") {
-		return states.PassAsIs
-	}
 	if strings.Contains(r.RequestURI, "/containers") {
 		return states.ContainerOthers
 	}
