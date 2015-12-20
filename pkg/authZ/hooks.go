@@ -88,6 +88,9 @@ func eventParse(r *http.Request) states.EventEnum {
 	if strings.Contains(r.RequestURI, "/images") && strings.HasSuffix(r.RequestURI, "/json") {
 		return states.PassAsIs
 	}
+	if strings.HasSuffix(r.RequestURI, "/version") {
+		return states.PassAsIs
+	}
 
 //	if strings.Contains(r.RequestURI, "Will add to here all APIs we explicitly want to block") {
 //		return states.NotSupported
