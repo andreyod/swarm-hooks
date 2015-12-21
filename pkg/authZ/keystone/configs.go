@@ -20,8 +20,8 @@ const defaultConfigurationFileCreationPath = "/tmp/authHookConf.json"
 var Configuration *Configs
 
 func (*Configs) ReadConfigurationFormfile() {
-//    file, _ := os.Open("authHookConf.json")
-	file, _ := os.Open("/root/work/src/github.com/docker/swarm/authHookConf.json")
+    file, _ := os.Open("authHookConf.json")
+//	file, _ := os.Open("/root/work/src/github.com/docker/swarm/authHookConf.json")
 	decoder := json.NewDecoder(file)
 	Configuration = new(Configs)
 	err := decoder.Decode(&Configuration)
