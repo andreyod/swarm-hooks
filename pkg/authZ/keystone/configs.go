@@ -18,13 +18,23 @@ type Configs struct {
 const defaultConfigurationFileCreationPath = "/tmp/authHookConf.json"
 
 var Configuration *Configs
+var swarmConfig = os.Getenv("SWARM_CONFIG")
 
 func (*Configs) ReadConfigurationFormfile() {
-    file, _ := os.Open("authHookConf.json")
-//	file, _ := os.Open("/root/work/src/github.com/docker/swarm/authHookConf.json")
+	if swarmConfig == "" {
+		log.Warn("Missing SWARM_CONFIG environment variable, trying to locate deafult authHookConf.json")
+		swarmConfig = "authHookConf.json"	
+	}
+	
+	file, err := os.Open(swarmConfig)
+	if err != nil {
+		log.Fatal(err)
+		os.Exit(1)
+	}
+	
 	decoder := json.NewDecoder(file)
 	Configuration = new(Configs)
-	err := decoder.Decode(&Configuration)
+	err = decoder.Decode(&Configuration)
 	if err != nil {
 		log.Println("error:", err)
 	}
