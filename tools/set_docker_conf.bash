@@ -118,7 +118,7 @@ if [ -f ${DOCKER_CONF} ]; then
 	sed -i '/\,/ s/.*\"X-Auth-Token\".*/            "X-Auth-Token": '${token}',/' $DOCKER_CONF
 else
 	$verbose && echo "File ${DOCKER_CONF} not exist"
-	echo -e "{\n\t\"HttpHeaders\": {\n\t\t\"X-Auth-TenantId\": ${tenant},\n\t\t\"X-Auth-Token\": ${token}\n\t},\n\t\"quotas\":{\n\t\t\"Memory\": 128\n\t}\n}" > $DOCKER_CONF
+	echo -e "{\n\t\"HttpHeaders\": {\n\t\t\"X-Auth-TenantId\": ${tenant},\n\t\t\"X-Auth-Token\": ${token}\n\t}\n}" > $DOCKER_CONF
 fi
 
 $verbose && echo -e '\n\n---------------------------'

@@ -3,7 +3,7 @@ package keystone
 import (
 	"errors"
 	"io/ioutil"
-
+	"os"
 	log "github.com/Sirupsen/logrus"
 	"github.com/docker/swarm/cluster"
 	"github.com/docker/swarm/pkg/authZ/utils"
@@ -15,7 +15,7 @@ type QuotaImpl struct {
 }
 
 var tenancyLabel = "com.swarm.tenant.0"
-var CONFIG_FILE_PATH = "/root/.docker/config.json"
+var CONFIG_FILE_PATH = os.Getenv("SWARM_CONFIG")
 var DEFAULT_MEMORY_QUOTA int64 = 1024 * 1024 * 100 //100MB (Currently hardcoded for all tenant)
 var DEFAULT_MEMORY float64 = 1024 * 1024 * 10        //10MB (Currently hardcoded for all tenant)
 

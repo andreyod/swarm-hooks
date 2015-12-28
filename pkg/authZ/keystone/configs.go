@@ -23,15 +23,15 @@ var swarmConfig = os.Getenv("SWARM_CONFIG")
 func (*Configs) ReadConfigurationFormfile() {
 	if swarmConfig == "" {
 		log.Warn("Missing SWARM_CONFIG environment variable, trying to locate deafult authHookConf.json")
-		swarmConfig = "authHookConf.json"	
+		swarmConfig = "authHookConf.json"
 	}
-	
+
 	file, err := os.Open(swarmConfig)
 	if err != nil {
 		log.Fatal(err)
 		os.Exit(1)
 	}
-	
+
 	decoder := json.NewDecoder(file)
 	Configuration = new(Configs)
 	err = decoder.Decode(&Configuration)
