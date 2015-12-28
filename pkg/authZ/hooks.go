@@ -61,6 +61,7 @@ func (*Hooks) PrePostAuthWrapper(cluster cluster.Cluster, next http.Handler) htt
 	})
 }
 
+/*Probably should use regular expressions here*/
 func eventParse(r *http.Request) states.EventEnum {
 	log.Debug("Got the uri...", r.RequestURI)
 
@@ -73,7 +74,7 @@ func eventParse(r *http.Request) states.EventEnum {
 	}
 
 	if strings.Contains(r.RequestURI, "/containers") &&
-		(strings.Contains(r.RequestURI, "logs") || strings.Contains(r.RequestURI, "attach") || strings.Contains(r.RequestURI, "exec")) {
+		(strings.Contains(r.RequestURI, "logs") || strings.Contains(r.RequestURI, "attach") || strings.HasSuffix(r.RequestURI, "exec")) {
 		return states.StreamOrHijack
 	}
 	if strings.Contains(r.RequestURI, "/containers") && strings.HasSuffix(r.RequestURI, "/json") {
@@ -85,7 +86,7 @@ func eventParse(r *http.Request) states.EventEnum {
 	if strings.Contains(r.RequestURI, "/images") && strings.HasSuffix(r.RequestURI, "/json") {
 		return states.PassAsIs
 	}
-	if strings.HasSuffix(r.RequestURI, "/version") {
+	if strings.HasSuffix(r.RequestURI, "/version") || strings.Contains(r.RequestURI, "/exec/"){
 		return states.PassAsIs
 	}
 
