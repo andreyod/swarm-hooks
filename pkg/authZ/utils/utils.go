@@ -21,11 +21,13 @@ import (
 	"github.com/docker/swarm/pkg/authZ/headers"
 	"github.com/gorilla/mux"
 	"github.com/jeffail/gabs"
+	"encoding/json"
 )
 
 type ValidationOutPutDTO struct {
 	ContainerID string
 	Links       map[string]string
+	VolumesFrom map[string]string
 	ErrorMessage string
 	//Quota can live here too? Currently quota needs only raise error
 	//What else
@@ -92,6 +94,77 @@ func CheckLinksOwnerShip(cluster cluster.Cluster, tenantName string, r *http.Req
 	v := ValidationOutPutDTO{ContainerID: "", Links: linkSet}
 	return true, &v
 
+}
+
+type Config struct {
+    HostConfig struct {
+		Links []interface{}
+    	VolumesFrom []interface{}
+	}
+}
+
+func CheckConfigOwnerShip(cluster cluster.Cluster, tenantName string, r *http.Request, reqBody []byte) (bool, *ValidationOutPutDTO) {
+	
+	config := &Config{}
+	
+	err := json.Unmarshal(reqBody, &config)
+    if err != nil {
+        panic(err)
+    }
+
+	log.Debug("*******************XXXXXXXXXX*******************************")
+	log.Debug(fmt.Println(config.HostConfig.Links))
+	log.Debug(fmt.Println(config.HostConfig.VolumesFrom))
+	
+	containers := cluster.Containers()
+	
+	log.Debug("*******************OOOOOOOOOOOOOOOO***********************")
+	log.Debugf("vLength: %d", len(config.HostConfig.VolumesFrom))
+	log.Debugf("lLength: %d", len(config.HostConfig.Links))
+	log.Debug("*******************OOOOOOOOOOOOOOOO***********************")
+	log.Debug("LL: " + string(len(config.HostConfig.Links)))
+	
+	volSet := make(map[string]string)
+	linkSet := make(map[string]string)
+	var v int
+	var l int
+	
+	if len(config.HostConfig.VolumesFrom) != 0 || len(config.HostConfig.Links) != 0 {
+		for _, container := range containers {
+			log.Debug("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
+			
+			for _, volume := range config.HostConfig.VolumesFrom {
+				vol := volume.(string)
+				log.Debug("VolumesFrom: #" + vol + "#")
+				log.Debug("containerName: " + container.Info.Name)
+				log.Debug("Comparing with: " + "/" + vol + tenantName)
+				
+				if "/" + vol + tenantName == container.Info.Name || "/"+vol == container.Info.Name {
+					volSet[container.Info.Id] = vol
+					v++
+				}
+			}
+			for _, link := range config.HostConfig.Links {
+				link := link.(string)
+				log.Debug("Link: #" + link + "#")
+				log.Debug("containerName: " + container.Info.Name)
+				log.Debug("Comparing with: " + "/" + link + tenantName)
+				
+				if "/" + link + tenantName == container.Info.Name || "/"+link == container.Info.Name {
+					linkSet[container.Info.Id] = link
+					l++
+				}
+			}
+		}
+		
+		if v != len(config.HostConfig.VolumesFrom) || l != len(config.HostConfig.Links) {
+			return false, nil
+		}
+	}
+	log.Debug("*********************XXXXXXXXX*****************************")
+	
+	res := ValidationOutPutDTO{ContainerID: "", Links: linkSet, VolumesFrom: volSet}
+	return true, &res
 }
 
 //TODO - Pass by ref ?

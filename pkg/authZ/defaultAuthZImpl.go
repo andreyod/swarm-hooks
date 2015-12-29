@@ -42,6 +42,15 @@ func (*DefaultImp) HandleEvent(eventType states.EventEnum, w http.ResponseWriter
 			newBody = bytes.Replace(newBody, []byte(cName+" :"), []byte(cId+":"), -1)
 			newBody = bytes.Replace(newBody, []byte(cName+":"), []byte(cId+":"), -1)
 		}
+		
+//		for cId, _ := range dto.VolumesFrom {
+//			log.Debug(cId)
+//			cName := dto.VolumesFrom[cId]
+//			log.Debug("2cName:" + cName + "#")
+//			log.Debug("2cId:" + cId + "#")
+//			newBody = bytes.Replace(newBody, []byte(cName+" :"), []byte(cId+":"), -1)
+//			newBody = bytes.Replace(newBody, []byte(cName+":"), []byte(cId+":"), -1)
+//		}
 
 		log.Debug("New body: " + string(newBody))
 

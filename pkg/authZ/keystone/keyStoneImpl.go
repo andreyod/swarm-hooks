@@ -98,6 +98,8 @@ func (this *KeyStoneAPI) ValidateRequest(cluster cluster.Cluster, eventType stat
 		if err != nil {
 			return states.NotApproved, &utils.ValidationOutPutDTO{ErrorMessage: err.Error()}
 		}
+//        valid, dto := utils.CheckConfigOwnerShip(cluster, tenantIdToValidate, r, reqBody)
+
 		valid, dto := utils.CheckLinksOwnerShip(cluster, tenantIdToValidate, r, reqBody)
 		log.Debug(valid)
 		log.Debug(dto)
