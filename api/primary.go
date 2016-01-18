@@ -114,13 +114,8 @@ func profilerSetup(mainRouter *mux.Router, path string) {
 }
 
 // NewPrimary creates a new API router.
-<<<<<<< HEAD
-func NewPrimary(cluster cluster.Cluster, tlsConfig *tls.Config, status StatusHandler, enableCors bool, multiTenant bool) *mux.Router {
-=======
-func NewPrimary(cluster cluster.Cluster, tlsConfig *tls.Config, status StatusHandler, debug, enableCors bool) *mux.Router {
->>>>>>> 68d053113d346fff2d6e8697969e48c19c278520
+func NewPrimary(cluster cluster.Cluster, tlsConfig *tls.Config, status StatusHandler, debug, enableCors bool, multiTenant bool) *mux.Router {
 	// Register the API events handler in the cluster.
-	log.Debug("multiTenant: ", multiTenant)
 	eventsHandler := newEventsHandler()
 	cluster.RegisterEventHandler(eventsHandler)
 
@@ -132,7 +127,7 @@ func NewPrimary(cluster cluster.Cluster, tlsConfig *tls.Config, status StatusHan
 	}
 
 	r := mux.NewRouter()
-	setupPrimaryRouter(r, context, enableCors)
+	setupPrimaryRouter(r, context, enableCors, multiTenant)
 
 	if debug {
 		profilerSetup(r, "/debug/")
@@ -141,7 +136,7 @@ func NewPrimary(cluster cluster.Cluster, tlsConfig *tls.Config, status StatusHan
 	return r
 }
 
-func setupPrimaryRouter(r *mux.Router, context *context, enableCors bool) {
+func setupPrimaryRouter(r *mux.Router, context *context, enableCors bool, multiTenant bool) {
 	for method, mappings := range routes {
 		for route, fct := range mappings {
 			log.WithFields(log.Fields{"method": method, "route": route}).Debug("Registering HTTP route")
@@ -162,16 +157,11 @@ func setupPrimaryRouter(r *mux.Router, context *context, enableCors bool) {
 				hooks.Init()
 				r.Path("/v{version:[0-9.]+}" + localRoute).Methods(localMethod).Handler(hooks.PrePostAuthWrapper(cluster, http.HandlerFunc(wrap)))
 				r.Path(localRoute).Methods(localMethod).Handler(hooks.PrePostAuthWrapper(cluster, http.HandlerFunc(wrap)))
+
 			} else {
 				r.Path("/v{version:[0-9.]+}" + localRoute).Methods(localMethod).HandlerFunc(wrap)
 				r.Path(localRoute).Methods(localMethod).HandlerFunc(wrap)
 			}
-
-<<<<<<< HEAD
-=======
-			r.Path("/v{version:[0-9.]+}" + localRoute).Methods(localMethod).HandlerFunc(wrap)
-			r.Path(localRoute).Methods(localMethod).HandlerFunc(wrap)
-
 			if enableCors {
 				optionsMethod := "OPTIONS"
 				localFct = optionsHandler
@@ -184,13 +174,17 @@ func setupPrimaryRouter(r *mux.Router, context *context, enableCors bool) {
 					}
 					localFct(context, w, r)
 				}
+				if multiTenant {
+					hooks := new(authZ.Hooks)
+					hooks.Init()
+					r.Path("/v{version:[0-9.]+}" + localRoute).Methods(optionsMethod).Handler(hooks.PrePostAuthWrapper(cluster, http.HandlerFunc(wrap)))
+					r.Path(localRoute).Methods(optionsMethod).Handler(hooks.PrePostAuthWrapper(cluster, http.HandlerFunc(wrap)))
 
-				r.Path("/v{version:[0-9.]+}" + localRoute).
-					Methods(optionsMethod).HandlerFunc(wrap)
-				r.Path(localRoute).Methods(optionsMethod).
-					HandlerFunc(wrap)
+				} else {
+					r.Path("/v{version:[0-9.]+}" + localRoute).Methods(optionsMethod).HandlerFunc(wrap)
+					r.Path(localRoute).Methods(optionsMethod).HandlerFunc(wrap)
+				}
 			}
->>>>>>> 68d053113d346fff2d6e8697969e48c19c278520
 		}
 	}
 }
