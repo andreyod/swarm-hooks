@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"testing"
+	"time"
 
 	"github.com/docker/swarm/cluster"
 	"github.com/samalba/dockerclient"
@@ -24,7 +25,7 @@ func (nopCloser) Close() error {
 
 var (
 	mockInfo = &dockerclient.Info{
-		ID:              "id",
+		ID:              "test-engine",
 		Name:            "name",
 		NCPU:            10,
 		MemTotal:        20,
@@ -38,10 +39,16 @@ var (
 	mockVersion = &dockerclient.Version{
 		Version: "1.6.2",
 	}
+
+	engOpts = &cluster.EngineOpts{
+		RefreshMinInterval: time.Duration(30) * time.Second,
+		RefreshMaxInterval: time.Duration(60) * time.Second,
+		FailureRetry:       3,
+	}
 )
 
 func createEngine(t *testing.T, ID string, containers ...*cluster.Container) *cluster.Engine {
-	engine := cluster.NewEngine(ID, 0)
+	engine := cluster.NewEngine(ID, 0, engOpts)
 	engine.Name = ID
 	engine.ID = ID
 
@@ -119,7 +126,7 @@ func TestImportImage(t *testing.T) {
 
 	// create engione
 	id := "test-engine"
-	engine := cluster.NewEngine(id, 0)
+	engine := cluster.NewEngine(id, 0, engOpts)
 	engine.Name = id
 	engine.ID = id
 
@@ -169,7 +176,7 @@ func TestLoadImage(t *testing.T) {
 
 	// create engione
 	id := "test-engine"
-	engine := cluster.NewEngine(id, 0)
+	engine := cluster.NewEngine(id, 0, engOpts)
 	engine.Name = id
 	engine.ID = id
 
@@ -222,7 +229,7 @@ func TestTagImage(t *testing.T) {
 
 	// create engine
 	id := "test-engine"
-	engine := cluster.NewEngine(id, 0)
+	engine := cluster.NewEngine(id, 0, engOpts)
 	engine.Name = id
 	engine.ID = id
 

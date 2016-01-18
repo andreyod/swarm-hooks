@@ -32,6 +32,11 @@ var (
 		Usage:  "Address of the Docker Engine joining the cluster. Swarm manager(s) MUST be able to reach the Docker Engine at this address.",
 		EnvVar: "SWARM_ADVERTISE",
 	}
+	flJoinRandomDelay = cli.StringFlag{
+		Name:  "delay",
+		Value: "0s",
+		Usage: "add a random delay in [0s,delay] to avoid synchronized registration",
+	}
 	flManageAdvertise = cli.StringFlag{
 		Name:   "advertise, addr",
 		Usage:  "Address of the swarm manager joining the cluster. Other swarm manager(s) MUST be able to reach the swarm manager at this address.",
@@ -48,18 +53,38 @@ var (
 	}
 	flHeartBeat = cli.StringFlag{
 		Name:  "heartbeat",
-		Value: "20s",
+		Value: "60s",
 		Usage: "period between each heartbeat",
 	}
 	flTTL = cli.StringFlag{
 		Name:  "ttl",
-		Value: "60s",
+		Value: "180s",
 		Usage: "sets the expiration of an ephemeral node",
 	}
 	flTimeout = cli.StringFlag{
 		Name:  "timeout",
 		Value: "10s",
 		Usage: "timeout period",
+	}
+	flRefreshIntervalMin = cli.StringFlag{
+		Name:  "engine-refresh-min-interval",
+		Value: "30s",
+		Usage: "set engine refresh minimum interval",
+	}
+	flRefreshIntervalMax = cli.StringFlag{
+		Name:  "engine-refresh-max-interval",
+		Value: "60s",
+		Usage: "set engine refresh maximum interval",
+	}
+	flRefreshRetry = cli.IntFlag{
+		Name:  "engine-refresh-retry",
+		Value: 3,
+		Usage: "deprecated; replaced by --engine-failure-retry",
+	}
+	flFailureRetry = cli.IntFlag{
+		Name:  "engine-failure-retry",
+		Value: 3,
+		Usage: "set engine failure retry count",
 	}
 	flEnableCors = cli.BoolFlag{
 		Name:  "api-enable-cors, cors",
@@ -123,14 +148,13 @@ var (
 		Usage: "discovery options",
 		Value: &cli.StringSlice{},
 	}
-
 	flLeaderElection = cli.BoolFlag{
 		Name:  "replication",
 		Usage: "Enable Swarm manager replication",
 	}
 	flLeaderTTL = cli.StringFlag{
 		Name:  "replication-ttl",
-		Value: "30s",
+		Value: "15s",
 		Usage: "Leader lock release time on failure",
 	}
 )

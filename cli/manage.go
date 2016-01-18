@@ -11,12 +11,13 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/codegangsta/cli"
+	"github.com/docker/docker/pkg/discovery"
+	kvdiscovery "github.com/docker/docker/pkg/discovery/kv"
 	"github.com/docker/swarm/api"
 	"github.com/docker/swarm/cluster"
 	"github.com/docker/swarm/cluster/mesos"
 	"github.com/docker/swarm/cluster/swarm"
-	"github.com/docker/swarm/discovery"
-	kvdiscovery "github.com/docker/swarm/discovery/kv"
+	"github.com/docker/swarm/experimental"
 	"github.com/docker/swarm/leadership"
 	"github.com/docker/swarm/scheduler"
 	"github.com/docker/swarm/scheduler/filter"
@@ -98,7 +99,7 @@ func loadTLSConfig(ca, cert, key string, verify bool) (*tls.Config, error) {
 }
 
 // Initialize the discovery service.
-func createDiscovery(uri string, c *cli.Context, discoveryOpt []string) discovery.Discovery {
+func createDiscovery(uri string, c *cli.Context, discoveryOpt []string) discovery.Backend {
 	hb, err := time.ParseDuration(c.String("heartbeat"))
 	if err != nil {
 		log.Fatalf("invalid --heartbeat: %v", err)
@@ -126,10 +127,13 @@ func getDiscoveryOpt(c *cli.Context) map[string]string {
 		kvpair := strings.SplitN(option, "=", 2)
 		options[kvpair[0]] = kvpair[1]
 	}
+	if _, ok := options["kv.path"]; !ok {
+		options["kv.path"] = "docker/swarm/nodes"
+	}
 	return options
 }
 
-func setupReplication(c *cli.Context, cluster cluster.Cluster, server *api.Server, discovery discovery.Discovery, addr string, leaderTTL time.Duration, tlsConfig *tls.Config) {
+func setupReplication(c *cli.Context, cluster cluster.Cluster, server *api.Server, discovery discovery.Backend, addr string, leaderTTL time.Duration, tlsConfig *tls.Config) {
 	kvDiscovery, ok := discovery.(*kvdiscovery.Discovery)
 	if !ok {
 		log.Fatal("Leader election is only supported with consul, etcd and zookeeper discovery.")
@@ -140,7 +144,7 @@ func setupReplication(c *cli.Context, cluster cluster.Cluster, server *api.Serve
 	candidate := leadership.NewCandidate(client, p, addr, leaderTTL)
 	follower := leadership.NewFollower(client, p)
 
-	primary := api.NewPrimary(cluster, tlsConfig, &statusHandler{cluster, candidate, follower}, c.Bool("cors"), c.IsSet("multiTenant"))
+	primary := api.NewPrimary(cluster, tlsConfig, &statusHandler{cluster, candidate, follower}, c.GlobalBool("debug"), c.Bool("cors"), c.IsSet("multiTenant"))
 	replica := api.NewReplica(primary, tlsConfig)
 
 	go func() {
@@ -161,7 +165,10 @@ func setupReplication(c *cli.Context, cluster cluster.Cluster, server *api.Serve
 }
 
 func run(candidate *leadership.Candidate, server *api.Server, primary *mux.Router, replica *api.Replica) {
-	electedCh, errCh := candidate.RunForElection()
+	electedCh, errCh, err := candidate.RunForElection()
+	if err != nil {
+		return
+	}
 	for {
 		select {
 		case isElected := <-electedCh:
@@ -181,7 +188,10 @@ func run(candidate *leadership.Candidate, server *api.Server, primary *mux.Route
 }
 
 func follow(follower *leadership.Follower, replica *api.Replica, addr string) {
-	leaderCh, errCh := follower.FollowElection()
+	leaderCh, errCh, err := follower.FollowElection()
+	if err != nil {
+		return
+	}
 	for {
 		select {
 		case leader := <-leaderCh:
@@ -232,6 +242,29 @@ func manage(c *cli.Context) {
 		}
 	}
 
+	refreshMinInterval := c.Duration("engine-refresh-min-interval")
+	refreshMaxInterval := c.Duration("engine-refresh-max-interval")
+	if refreshMinInterval == time.Duration(0)*time.Second {
+		log.Fatal("minimum refresh interval should be a positive number")
+	}
+	if refreshMaxInterval < refreshMinInterval {
+		log.Fatal("max refresh interval cannot be less than min refresh interval")
+	}
+	// engine-refresh-retry is deprecated
+	refreshRetry := c.Int("engine-refresh-retry")
+	if refreshRetry != 3 {
+		log.Fatal("--engine-refresh-retry is deprecated. Use --engine-failure-retry")
+	}
+	failureRetry := c.Int("engine-failure-retry")
+	if failureRetry <= 0 {
+		log.Fatal("invalid failure retry count")
+	}
+	engineOpts := &cluster.EngineOpts{
+		RefreshMinInterval: refreshMinInterval,
+		RefreshMaxInterval: refreshMaxInterval,
+		FailureRetry:       failureRetry,
+	}
+
 	uri := getDiscovery(c)
 	if uri == "" {
 		log.Fatalf("discovery required to manage a cluster. See '%s manage --help'.", c.App.Name)
@@ -257,9 +290,9 @@ func manage(c *cli.Context) {
 	switch c.String("cluster-driver") {
 	case "mesos-experimental":
 		log.Warn("WARNING: the mesos driver is currently experimental, use at your own risks")
-		cl, err = mesos.NewCluster(sched, tlsConfig, uri, c.StringSlice("cluster-opt"))
+		cl, err = mesos.NewCluster(sched, tlsConfig, uri, c.StringSlice("cluster-opt"), engineOpts)
 	case "swarm":
-		cl, err = swarm.NewCluster(sched, tlsConfig, discovery, c.StringSlice("cluster-opt"))
+		cl, err = swarm.NewCluster(sched, tlsConfig, discovery, c.StringSlice("cluster-opt"), engineOpts)
 	default:
 		log.Fatalf("unsupported cluster %q", c.String("cluster-driver"))
 	}
@@ -289,8 +322,12 @@ func manage(c *cli.Context) {
 
 		setupReplication(c, cl, server, discovery, addr, leaderTTL, tlsConfig)
 	} else {
-		server.SetHandler(api.NewPrimary(cl, tlsConfig, &statusHandler{cl, nil, nil}, c.Bool("cors"), c.IsSet("multiTenant")))
+		server.SetHandler(api.NewPrimary(cl, tlsConfig, &statusHandler{cl, nil, nil}, c.GlobalBool("debug"), c.Bool("cors"), c.IsSet("multiTenant")))
 	}
 
+	if experimental.ENABLED {
+		log.Warn("WARNING: rescheduling is currently experimental, use at your own risks")
+		cluster.NewWatchdog(cl)
+	}
 	log.Fatal(server.ListenAndServe())
 }

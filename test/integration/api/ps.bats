@@ -50,12 +50,14 @@ function teardown() {
 	swarm_manage
 
 	docker_swarm run -d --name c1 busybox echo c1
+	sleep 1 #sleep so the 2 containers don't start at the same second
 	docker_swarm run -d --name c2 busybox echo c2
 
-	run docker_swarm ps --before c1
+	run eval "docker_swarm ps --before c1 2>/dev/null"
+	echo $output
 	[ "${#lines[@]}" -eq  1 ]
 
-	run docker_swarm ps --before c2
+	run eval "docker_swarm ps --before c2 2>/dev/null"
 	[ "${#lines[@]}" -eq  2 ]
 
 	run docker_swarm ps --before c3

@@ -3,8 +3,7 @@ package cluster
 import (
 	"strings"
 
-	"github.com/docker/docker/pkg/parsers"
-	dockerfilters "github.com/docker/docker/pkg/parsers/filters"
+	dockerfilters "github.com/docker/engine-api/types/filters"
 	"github.com/samalba/dockerclient"
 )
 
@@ -13,6 +12,26 @@ type Image struct {
 	dockerclient.Image
 
 	Engine *Engine
+}
+
+// ParseRepositoryTag gets a repos name and returns the right reposName + tag|digest
+// The tag can be confusing because of a port in a repository name.
+//     Ex: localhost.localdomain:5000/samalba/hipache:latest
+//     Digest ex: localhost:5000/foo/bar@sha256:bc8813ea7b3603864987522f02a76101c17ad122e1c46d790efc0fca78ca7bfb
+func ParseRepositoryTag(repos string) (string, string) {
+	n := strings.Index(repos, "@")
+	if n >= 0 {
+		parts := strings.Split(repos, "@")
+		return parts[0], parts[1]
+	}
+	n = strings.LastIndex(repos, ":")
+	if n < 0 {
+		return repos, ""
+	}
+	if tag := repos[n+1:]; !strings.Contains(tag, "/") {
+		return repos[:n], tag
+	}
+	return repos, ""
 }
 
 // Match is exported
@@ -24,15 +43,28 @@ func (image *Image) Match(IDOrName string, matchTag bool) bool {
 		return true
 	}
 
-	repoName, tag := parsers.ParseRepositoryTag(IDOrName)
+	repoName, tag := ParseRepositoryTag(IDOrName)
 
+	// match repotag
 	for _, imageRepoTag := range image.RepoTags {
-		imageRepoName, imageTag := parsers.ParseRepositoryTag(imageRepoTag)
+		imageRepoName, imageTag := ParseRepositoryTag(imageRepoTag)
 
 		if matchTag == false && imageRepoName == repoName {
 			return true
 		}
 		if imageRepoName == repoName && (imageTag == tag || tag == "") {
+			return true
+		}
+	}
+
+	// match repodigests
+	for _, imageDigest := range image.RepoDigests {
+		imageRepoName, imageDigest := ParseRepositoryTag(imageDigest)
+
+		if matchTag == false && imageRepoName == repoName {
+			return true
+		}
+		if imageRepoName == repoName && (imageDigest == tag || tag == "") {
 			return true
 		}
 	}
@@ -55,11 +87,13 @@ type Images []*Image
 func (images Images) Filter(opts ImageFilterOptions) Images {
 	includeAll := func(image *Image) bool {
 		// TODO: this is wrong if RepoTags == []
-		return opts.All || (len(image.RepoTags) != 0 && image.RepoTags[0] != "<none>:<none>")
+		return opts.All ||
+			(len(image.RepoTags) != 0 && image.RepoTags[0] != "<none>:<none>") ||
+			(len(image.RepoDigests) != 0 && image.RepoDigests[0] != "<none>@<none>")
 	}
 
 	includeFilter := func(image *Image) bool {
-		if opts.Filters == nil {
+		if opts.Filters.Len() == 0 {
 			return true
 		}
 		return opts.Filters.MatchKVList("label", image.Labels)
@@ -70,7 +104,7 @@ func (images Images) Filter(opts ImageFilterOptions) Images {
 			return true
 		}
 		for _, repoTag := range image.RepoTags {
-			repoName, _ := parsers.ParseRepositoryTag(repoTag)
+			repoName, _ := ParseRepositoryTag(repoTag)
 			if repoTag == opts.NameFilter || repoName == opts.NameFilter {
 				return true
 			}

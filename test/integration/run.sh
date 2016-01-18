@@ -14,7 +14,7 @@ SWARM_ROOT=$(cd ../..; pwd -P)
 INTEGRATION_IMAGE=${INTEGRATION_IMAGE:-dockerswarm/swarm-test-env}
 
 # Make sure we upgrade the integration environment.
-#docker pull $INTEGRATION_IMAGE
+docker pull $INTEGRATION_IMAGE
 
 # Start the integration tests in a Docker container.
 ID=$(docker run -d -t --privileged \
@@ -23,7 +23,6 @@ ID=$(docker run -d -t --privileged \
 	-e "DOCKER_IMAGE=$DOCKER_IMAGE" \
 	-e "DOCKER_VERSION=$DOCKER_VERSION" \
 	-e "STORAGE_DRIVER=$STORAGE_DRIVER" \
-	-e "EXEC_DRIVER=$EXEC_DRIVER" \
 	${INTEGRATION_IMAGE} \
 	./test_runner.sh "$@")
 
