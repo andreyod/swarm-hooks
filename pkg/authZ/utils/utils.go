@@ -21,12 +21,14 @@ import (
 	"github.com/docker/swarm/pkg/authZ/headers"
 	"github.com/gorilla/mux"
 	"github.com/jeffail/gabs"
-	"encoding/json"
+//	"encoding/json"
+	"github.com/samalba/dockerclient"
 )
 
 type ValidationOutPutDTO struct {
 	ContainerID string
-	Links       map[string]string
+//	Links       map[string]string
+	Links       map[string][]string
 	VolumesFrom map[string]string
 	ErrorMessage string
 	//Quota can live here too? Currently quota needs only raise error
@@ -54,8 +56,9 @@ func ModifyRequest(r *http.Request, body io.Reader, urlStr string, containerID s
 
 	return r, nil
 }
-
-func CheckLinksOwnerShip(cluster cluster.Cluster, tenantName string, r *http.Request, reqBody []byte) (bool, *ValidationOutPutDTO) {
+/*
+func CheckLinksOwnerShip(cluster cluster.Cluster, tenantName string, r *http.Request, reqBody []byte, containerConfig dockerclient.ContainerConfig) (bool, *ValidationOutPutDTO) {
+log.Debugf("CheckLinksOwnerShip for tenant %s\n",tenantName)
 	jsonParsed, _ := gabs.ParseJSON(reqBody)
 
 	//TODO - Consider refactor all to use json parse and not regexp and maybe save memory on de duplication
@@ -79,8 +82,10 @@ func CheckLinksOwnerShip(cluster cluster.Cluster, tenantName string, r *http.Req
 		for _, container := range containers {
 			log.Debug("containerName: " + container.Info.Name)
 			log.Debug("Comparing with: " + "/"+link+tenantName)
+			log.Debug("or Comparing with: " + "/"+link)
 			log.Debug("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
 			if "/"+link+tenantName == container.Info.Name || "/"+link == container.Info.Name {
+				log.Debug("XXXXXXXXXXXXXXLINK FOUNDXXXXXXXXXXXXXXXXXXXXXXXX")
 				linkSet[container.Info.Id] = link
 				l++
 			}
@@ -95,6 +100,74 @@ func CheckLinksOwnerShip(cluster cluster.Cluster, tenantName string, r *http.Req
 	return true, &v
 
 }
+*/
+
+func CheckLinksOwnerShip(cluster cluster.Cluster, tenantName string, r *http.Request, reqBody []byte, containerConfig dockerclient.ContainerConfig) (bool, *ValidationOutPutDTO) {
+	log.Debug("CheckLinksOwnerShip")
+	log.Debugf("%+v\n",containerConfig)
+	log.Debug("links",containerConfig.HostConfig.Links)
+	linksSize := len(containerConfig.HostConfig.Links)
+
+	//jsonParsed, _ := gabs.ParseJSON(reqBody)
+
+	//TODO - Consider refactor all to use json parse and not regexp and maybe save memory on de duplication
+	log.Debug("Checking links...")
+	//children, _ := jsonParsed.Path("HostConfig.Links").Children()
+	containers := cluster.Containers()
+	//linkSet := make(map[string]string)
+	linkSet := make(map[string][]string)
+//	var c int
+	var l int
+	
+	log.Debug("**************************************************")
+	for _, container := range containers {
+		if(strings.HasSuffix(container.Info.Name,tenantName)) {
+			log.Debugf("Examine container %s %s",container.Info.Name,container.Info.Id)
+			for i := 0; i < linksSize; i++ {
+				link := strings.TrimSpace(containerConfig.HostConfig.Links[i])
+				log.Debugf("Examine links[%d] == %s", i, link)
+				alias := ""
+				if strings.IndexByte(link,':')!=-1 {
+					log.Debugf("Complex Link")
+					linkArray := strings.SplitN(link,":",2)
+					link = strings.TrimSpace(linkArray[0])
+					alias = strings.TrimSpace(linkArray[1])
+					log.Debugf("link: %s alias: %s", link, alias)
+				}
+				if strings.HasPrefix(container.Info.Id,link) || "/"+link+tenantName == container.Info.Name {
+					log.Debug("Add link and alias to linkset")
+					_, ok := linkSet[container.Info.Name]
+					if !ok {
+						linkSet[container.Info.Name] = append(linkSet[container.Info.Name],link)						
+					}  
+					if alias != "" {
+						linkSet[container.Info.Name] = append(linkSet[container.Info.Name],alias)
+					}
+					
+					l++
+					// multiple links can be associated with same container; that is how docker compose works!
+					if l == linksSize {
+						break
+					}
+				}
+			}
+		}
+		// end for containers?
+		if l == linksSize {
+			break
+		}
+	}
+
+	if l != linksSize {
+		//TODO - Change to pointer and return nil
+		return false, &ValidationOutPutDTO{ContainerID: "", Links: linkSet}
+	}
+	v := ValidationOutPutDTO{ContainerID: "", Links: linkSet}
+	return true, &v
+
+}
+
+
 
 type Config struct {
     HostConfig struct {
@@ -102,7 +175,7 @@ type Config struct {
     	VolumesFrom []interface{}
 	}
 }
-
+/*
 func CheckConfigOwnerShip(cluster cluster.Cluster, tenantName string, r *http.Request, reqBody []byte) (bool, *ValidationOutPutDTO) {
 	
 	config := &Config{}
@@ -166,6 +239,7 @@ func CheckConfigOwnerShip(cluster cluster.Cluster, tenantName string, r *http.Re
 	res := ValidationOutPutDTO{ContainerID: "", Links: linkSet, VolumesFrom: volSet}
 	return true, &res
 }
+*/
 
 //TODO - Pass by ref ?
 func CheckOwnerShip(cluster cluster.Cluster, tenantName string, r *http.Request) (bool, *ValidationOutPutDTO) {

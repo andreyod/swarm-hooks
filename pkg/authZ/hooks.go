@@ -11,6 +11,8 @@ import (
 	"github.com/docker/swarm/pkg/authZ/states"
 	"io/ioutil"
 	"github.com/docker/swarm/pkg/authZ/utils"
+	"github.com/samalba/dockerclient"
+	"encoding/json"
 )
 
 //Hooks - Entry point to AuthZ mechanisem
@@ -38,21 +40,40 @@ func (*Hooks) PrePostAuthWrapper(cluster cluster.Cluster, next http.Handler) htt
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		eventType := eventParse(r)
 		defer r.Body.Close()
+		
+		//Bytes Json will be decoded into this one
+        var containerConfig dockerclient.ContainerConfig
 		reqBody, _ := ioutil.ReadAll(r.Body)
+		if len(reqBody)== 0 {
+			log.Debug("reqBody 0")
+		} else {
+			log.Debug("reqBody not 0")
+			if err := json.NewDecoder(bytes.NewReader(reqBody)).Decode(&containerConfig); err != nil {
+              log.Error(err)
+              return
+        		}
+			log.Debugf("Requests containerConfig: %+v",containerConfig)
+		}
+
 
 		r, e1 := utils.ModifyRequest(r, bytes.NewReader(reqBody), "", "")
 		if e1 != nil {
 			log.Error(e1)
 		}
+		
+		log.Debug("*****modified*****r***************")
+		log.Debug(r)
+		log.Debug("*************************")
 
-		isAllowed, dto := aclsAPI.ValidateRequest(cluster, eventType, w, r, reqBody)
+
+		isAllowed, dto := aclsAPI.ValidateRequest(cluster, eventType, w, r, reqBody, containerConfig)
 		if isAllowed == states.Admin {
 			next.ServeHTTP(w, r)
 			return
 		}
 		//TODO - all kinds of conditionals
 		if eventType == states.PassAsIs || isAllowed == states.Approved || isAllowed == states.ConditionFilter {
-			authZAPI.HandleEvent(eventType, w, r, next, dto, reqBody)
+			authZAPI.HandleEvent(eventType, w, r, next, dto, reqBody, containerConfig)
 		} else {
 			log.Debug("Return failure")
 			http.Error(w, dto.ErrorMessage, http.StatusBadRequest)

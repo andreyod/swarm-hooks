@@ -15,6 +15,7 @@ import (
 
 	"github.com/docker/swarm/pkg/authZ/headers"
 	"github.com/docker/swarm/pkg/authZ/utils"
+	"github.com/samalba/dockerclient"
 )
 
 type KeyStoneAPI struct{ quotaAPI QuotaAPI }
@@ -75,8 +76,9 @@ func (this *KeyStoneAPI) Init() error {
 // 1- Validate Token
 // 2- Get ACLs or Lable for your valid token
 // 3- Set up cache to save Keystone call
-func (this *KeyStoneAPI) ValidateRequest(cluster cluster.Cluster, eventType states.EventEnum, w http.ResponseWriter, r *http.Request, reqBody []byte) (states.ApprovalEnum, *utils.ValidationOutPutDTO) {
-
+func (this *KeyStoneAPI) ValidateRequest(cluster cluster.Cluster, eventType states.EventEnum, w http.ResponseWriter, r *http.Request, reqBody []byte, containerConfig dockerclient.ContainerConfig) (states.ApprovalEnum, *utils.ValidationOutPutDTO) {
+	log.Debug("ValidateRequest Keystone")
+	log.Debugf("%+v\n",containerConfig)
 	tokenToValidate := r.Header.Get(headers.AuthZTokenHeaderName)
 	tokenToValidate = strings.TrimSpace(tokenToValidate)
 	tenantIdToValidate := strings.TrimSpace(r.Header.Get(headers.AuthZTenantIdHeaderName))
@@ -100,10 +102,13 @@ func (this *KeyStoneAPI) ValidateRequest(cluster cluster.Cluster, eventType stat
 		}
 //        valid, dto := utils.CheckConfigOwnerShip(cluster, tenantIdToValidate, r, reqBody)
 
-		valid, dto := utils.CheckLinksOwnerShip(cluster, tenantIdToValidate, r, reqBody)
+		valid, dto := utils.CheckLinksOwnerShip(cluster, tenantIdToValidate, r, reqBody, containerConfig)
 		log.Debug(valid)
 		log.Debug(dto)
 		log.Debug("-----------------")
+		if !valid {
+			return states.NotApproved, dto			
+		} 
 		return states.Approved, dto
 	case states.ContainersList:
 		return states.ConditionFilter, nil

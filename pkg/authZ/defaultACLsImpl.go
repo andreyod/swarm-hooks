@@ -3,7 +3,7 @@ package authZ
 import (
 	//	"bytes"
 	//	"io/ioutil"
-	//	"fmt"
+	"fmt"
 	"net/http"
 
 	"github.com/docker/swarm/cluster"
@@ -13,6 +13,7 @@ import (
 	//	"github.com/docker/swarm/cluster/swarm"
 	"github.com/docker/swarm/pkg/authZ/headers"
 	"github.com/docker/swarm/pkg/authZ/utils"
+	"github.com/samalba/dockerclient"
 )
 
 //DefaultACLsImpl - Default implementation of ACLs API
@@ -21,8 +22,12 @@ type DefaultACLsImpl struct{}
 /*
 ValidateRequest - Who wants to do what - allow or not
 */
-func (*DefaultACLsImpl) ValidateRequest(cluster cluster.Cluster, eventType states.EventEnum, w http.ResponseWriter, r *http.Request, reqBody []byte) (states.ApprovalEnum, *utils.ValidationOutPutDTO) {
+func (*DefaultACLsImpl) ValidateRequest(cluster cluster.Cluster, eventType states.EventEnum, w http.ResponseWriter, r *http.Request, reqBody []byte, containerConfig dockerclient.ContainerConfig) (states.ApprovalEnum, *utils.ValidationOutPutDTO) {
 	tenantIdToValidate := r.Header.Get(headers.AuthZTenantIdHeaderName)
+	log.Debug("**ValidateRequest***")
+	fmt.Printf("%+v\n",containerConfig)
+	log.Debug("*************************")
+
 
 	if tenantIdToValidate == "" {
 		return states.NotApproved, &utils.ValidationOutPutDTO{ErrorMessage: "Not Authorized!"}
@@ -30,7 +35,7 @@ func (*DefaultACLsImpl) ValidateRequest(cluster cluster.Cluster, eventType state
 	//TODO - Duplication revise
 	switch eventType {
 	case states.ContainerCreate:
-		valid, dto := utils.CheckLinksOwnerShip(cluster, tenantIdToValidate, r, reqBody)
+		valid, dto := utils.CheckLinksOwnerShip(cluster, tenantIdToValidate, r, reqBody, containerConfig)
 		log.Debug(valid)
 		log.Debug(dto)
 		log.Debug("-----------------")
