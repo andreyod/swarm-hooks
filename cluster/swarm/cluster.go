@@ -149,11 +149,7 @@ func (c *Cluster) CreateContainer(config *cluster.ContainerConfig, name string, 
 	return container, err
 }
 
-<<<<<<< HEAD
-func (c *Cluster) createContainer(config *cluster.ContainerConfig, name string, withSoftImageAffinity bool, authConfig *dockerclient.AuthConfig) (*cluster.Container, error) {
-=======
 func (c *Cluster) createContainer(config *cluster.ContainerConfig, name string, withImageAffinity bool, authConfig *dockerclient.AuthConfig) (*cluster.Container, error) {
->>>>>>> 68d053113d346fff2d6e8697969e48c19c278520
 	c.scheduler.Lock()
 
 	// Ensure the name is available

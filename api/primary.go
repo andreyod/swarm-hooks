@@ -155,8 +155,8 @@ func setupPrimaryRouter(r *mux.Router, context *context, enableCors bool, multiT
 			if multiTenant {
 				hooks := new(authZ.Hooks)
 				hooks.Init()
-				r.Path("/v{version:[0-9.]+}" + localRoute).Methods(localMethod).Handler(hooks.PrePostAuthWrapper(cluster, http.HandlerFunc(wrap)))
-				r.Path(localRoute).Methods(localMethod).Handler(hooks.PrePostAuthWrapper(cluster, http.HandlerFunc(wrap)))
+				r.Path("/v{version:[0-9.]+}" + localRoute).Methods(localMethod).Handler(hooks.PrePostAuthWrapper(context.cluster, http.HandlerFunc(wrap)))
+				r.Path(localRoute).Methods(localMethod).Handler(hooks.PrePostAuthWrapper(context.cluster, http.HandlerFunc(wrap)))
 
 			} else {
 				r.Path("/v{version:[0-9.]+}" + localRoute).Methods(localMethod).HandlerFunc(wrap)
@@ -177,8 +177,8 @@ func setupPrimaryRouter(r *mux.Router, context *context, enableCors bool, multiT
 				if multiTenant {
 					hooks := new(authZ.Hooks)
 					hooks.Init()
-					r.Path("/v{version:[0-9.]+}" + localRoute).Methods(optionsMethod).Handler(hooks.PrePostAuthWrapper(cluster, http.HandlerFunc(wrap)))
-					r.Path(localRoute).Methods(optionsMethod).Handler(hooks.PrePostAuthWrapper(cluster, http.HandlerFunc(wrap)))
+					r.Path("/v{version:[0-9.]+}" + localRoute).Methods(optionsMethod).Handler(hooks.PrePostAuthWrapper(context.cluster, http.HandlerFunc(wrap)))
+					r.Path(localRoute).Methods(optionsMethod).Handler(hooks.PrePostAuthWrapper(context.cluster, http.HandlerFunc(wrap)))
 
 				} else {
 					r.Path("/v{version:[0-9.]+}" + localRoute).Methods(optionsMethod).HandlerFunc(wrap)
