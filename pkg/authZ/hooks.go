@@ -67,6 +67,7 @@ func (*Hooks) PrePostAuthWrapper(cluster cluster.Cluster, next http.Handler) htt
 
 
 		isAllowed, dto := aclsAPI.ValidateRequest(cluster, eventType, w, r, reqBody, containerConfig)
+//		isAllowed, dto := aclsAPI.ValidateRequest(cluster, eventType, r, containerConfig)
 		if isAllowed == states.Admin {
 			next.ServeHTTP(w, r)
 			return

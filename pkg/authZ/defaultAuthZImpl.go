@@ -150,13 +150,8 @@ func (*DefaultImp) HandleEvent(eventType states.EventEnum, w http.ResponseWriter
 		log.Debug("In create...")
 		log.Debugf("containerConfig In: %+v\n",containerConfig)
 		containerConfig.Labels[headers.TenancyLabel] = r.Header.Get(headers.AuthZTenantIdHeaderName)
-		linkArray := make([]string,0)
-		for k := range dto.Links {
-			for _, v := range dto.Links[k] {
-				linkArray = append(linkArray,k + ":" + v)
-    			}
-		}
-		containerConfig.HostConfig.Links = linkArray
+		containerConfig.HostConfig.VolumesFrom = dto.VolumesFrom
+		containerConfig.HostConfig.Links = dto.Links
 		log.Debugf("containerConfig Out: %+v\n",containerConfig) 
 		
 		var buf bytes.Buffer

@@ -28,8 +28,10 @@ import (
 type ValidationOutPutDTO struct {
 	ContainerID string
 //	Links       map[string]string
-	Links       map[string][]string
-	VolumesFrom map[string]string
+//	Links       map[string][]string
+	Links       []string
+//	VolumesFrom map[string]string
+	VolumesFrom []string
 	ErrorMessage string
 	//Quota can live here too? Currently quota needs only raise error
 	//What else
@@ -102,68 +104,84 @@ log.Debugf("CheckLinksOwnerShip for tenant %s\n",tenantName)
 }
 */
 
-func CheckLinksOwnerShip(cluster cluster.Cluster, tenantName string, r *http.Request, reqBody []byte, containerConfig dockerclient.ContainerConfig) (bool, *ValidationOutPutDTO) {
-	log.Debug("CheckLinksOwnerShip")
-	log.Debugf("%+v\n",containerConfig)
-	log.Debug("links",containerConfig.HostConfig.Links)
+func CheckLinksOwnerShip(cluster cluster.Cluster, tenantName string, containerConfig dockerclient.ContainerConfig) (bool, *ValidationOutPutDTO) {
+	log.Debug("in CheckLinksOwnerShip")
+	log.Debugf("containerConfig: %+v",containerConfig)
 	linksSize := len(containerConfig.HostConfig.Links)
-
-	//jsonParsed, _ := gabs.ParseJSON(reqBody)
-
-	//TODO - Consider refactor all to use json parse and not regexp and maybe save memory on de duplication
+	volumesFrom := containerConfig.HostConfig.VolumesFrom
+	volumesFromSize := len(containerConfig.HostConfig.VolumesFrom)
+	if linksSize < 1 && volumesFromSize < 1 {
+		return true, &ValidationOutPutDTO{ContainerID: ""}
+		
+	}
 	log.Debug("Checking links...")
-	//children, _ := jsonParsed.Path("HostConfig.Links").Children()
 	containers := cluster.Containers()
-	//linkSet := make(map[string]string)
-	linkSet := make(map[string][]string)
-//	var c int
-	var l int
+	linkSet := make(map[string]bool)
+	links := make([]string,0)
+	var v int  // count of volumesFrom links validated 
+	var l int  // count of links validated
 	
 	log.Debug("**************************************************")
 	for _, container := range containers {
 		if(strings.HasSuffix(container.Info.Name,tenantName)) {
 			log.Debugf("Examine container %s %s",container.Info.Name,container.Info.Id)
-			for i := 0; i < linksSize; i++ {
-				link := strings.TrimSpace(containerConfig.HostConfig.Links[i])
-				log.Debugf("Examine links[%d] == %s", i, link)
-				alias := ""
-				if strings.IndexByte(link,':')!=-1 {
-					log.Debugf("Complex Link")
-					linkArray := strings.SplitN(link,":",2)
-					link = strings.TrimSpace(linkArray[0])
-					alias = strings.TrimSpace(linkArray[1])
-					log.Debugf("link: %s alias: %s", link, alias)
+			for i := 0; i < volumesFromSize; i++ {
+				if v == volumesFromSize {
+					break
 				}
+				log.Debugf("Examine VolumeFrom[%d] == %s", i, containerConfig.HostConfig.VolumesFrom[i])
+				// volumesFrom element format <container_name>:<RW|RO>
+				volumeFromArray := strings.SplitN(strings.TrimSpace(containerConfig.HostConfig.VolumesFrom[i]),":",2)
+				volumeFrom := strings.TrimSpace(volumeFromArray[0])				
+				if strings.HasPrefix(container.Info.Id,volumeFrom) {
+					log.Debug("volumesFrom element with container id matches tenant container")
+					// no need to modify volumesFrom
+					v++					
+				} else if container.Info.Name == "/"+volumeFrom+tenantName {
+					log.Debug("volumesFrom element with container name matches tenant container")
+					volumesFrom[i] = container.Info.Id
+					if len(volumeFromArray) > 1 {
+						volumesFrom[i] += ":"
+						volumesFrom[i] += strings.TrimSpace(volumeFromArray[1])
+					}
+					v++					
+				}
+
+
+			}
+			for i := 0; i < linksSize; i++ {
+				if l == linksSize {
+						break
+				}
+				log.Debugf("Examine links[%d] == %s", i, containerConfig.HostConfig.Links[i])
+
+				linkArray := strings.SplitN(containerConfig.HostConfig.Links[i],":",2)
+				link := strings.TrimSpace(linkArray[0])
 				if strings.HasPrefix(container.Info.Id,link) || "/"+link+tenantName == container.Info.Name {
 					log.Debug("Add link and alias to linkset")
-					_, ok := linkSet[container.Info.Name]
+					_, ok := linkSet[link]
 					if !ok {
-						linkSet[container.Info.Name] = append(linkSet[container.Info.Name],link)						
-					}  
-					if alias != "" {
-						linkSet[container.Info.Name] = append(linkSet[container.Info.Name],alias)
+						linkSet[link] = true
+						links = append(links,container.Info.Id + ":" + link)						
 					}
-					
+					// check for alias  
+					if len(linkArray) > 1 {						
+						links = append(links,container.Info.Id + ":" + strings.TrimSpace(linkArray[1]))
+					}
 					l++
-					// multiple links can be associated with same container; that is how docker compose works!
-					if l == linksSize {
-						break
-					}
 				}
 			}
 		}
-		// end for containers?
-		if l == linksSize {
+		// are we done?
+		if v == volumesFromSize && l == linksSize {
 			break
 		}
 	}
 
-	if l != linksSize {
-		//TODO - Change to pointer and return nil
-		return false, &ValidationOutPutDTO{ContainerID: "", Links: linkSet}
+	if v != volumesFromSize || l != linksSize {
+		return false, &ValidationOutPutDTO{ContainerID: "", ErrorMessage: "Tenant does not own containers in volumesFrom or links."}
 	}
-	v := ValidationOutPutDTO{ContainerID: "", Links: linkSet}
-	return true, &v
+	return true, &ValidationOutPutDTO{ContainerID: "", Links: links, VolumesFrom: volumesFrom}
 
 }
 

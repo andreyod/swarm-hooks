@@ -77,6 +77,7 @@ func (this *KeyStoneAPI) Init() error {
 // 2- Get ACLs or Lable for your valid token
 // 3- Set up cache to save Keystone call
 func (this *KeyStoneAPI) ValidateRequest(cluster cluster.Cluster, eventType states.EventEnum, w http.ResponseWriter, r *http.Request, reqBody []byte, containerConfig dockerclient.ContainerConfig) (states.ApprovalEnum, *utils.ValidationOutPutDTO) {
+//func (this *KeyStoneAPI) ValidateRequest(cluster cluster.Cluster, eventType states.EventEnum, r *http.Request, containerConfig dockerclient.ContainerConfig) (states.ApprovalEnum, *utils.ValidationOutPutDTO) {
 	log.Debug("ValidateRequest Keystone")
 	log.Debugf("%+v\n",containerConfig)
 	tokenToValidate := r.Header.Get(headers.AuthZTokenHeaderName)
@@ -100,9 +101,7 @@ func (this *KeyStoneAPI) ValidateRequest(cluster cluster.Cluster, eventType stat
 		if err != nil {
 			return states.NotApproved, &utils.ValidationOutPutDTO{ErrorMessage: err.Error()}
 		}
-//        valid, dto := utils.CheckConfigOwnerShip(cluster, tenantIdToValidate, r, reqBody)
-
-		valid, dto := utils.CheckLinksOwnerShip(cluster, tenantIdToValidate, r, reqBody, containerConfig)
+		valid, dto := utils.CheckLinksOwnerShip(cluster, tenantIdToValidate, containerConfig)
 		log.Debug(valid)
 		log.Debug(dto)
 		log.Debug("-----------------")
