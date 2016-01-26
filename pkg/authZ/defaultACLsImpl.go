@@ -3,51 +3,56 @@ package authZ
 import (
 	//	"bytes"
 	//	"io/ioutil"
-	//	"fmt"
 	"net/http"
 
 	"github.com/docker/swarm/cluster"
 	//	"github.com/docker/swarm/cluster/swarm"
-
-
-//	"github.com/docker/swarm/cluster/swarm"
-
+	log "github.com/Sirupsen/logrus"
+	"github.com/docker/swarm/pkg/authZ/states"
+	//	"github.com/docker/swarm/cluster/swarm"
+	"github.com/docker/swarm/pkg/authZ/headers"
+	"github.com/docker/swarm/pkg/authZ/utils"
+	"github.com/samalba/dockerclient"
 )
 
 //DefaultACLsImpl - Default implementation of ACLs API
 type DefaultACLsImpl struct{}
 
-var authZTokenHeaderName = "X-Auth-Token"
-var tenancyLabel = "com.swarm.tenant.0"
-
 /*
 ValidateRequest - Who wants to do what - allow or not
 */
-func (*DefaultACLsImpl) ValidateRequest(cluster cluster.Cluster, eventType EventEnum, w http.ResponseWriter, r *http.Request) (ApprovalEnum, string) {
-	tokenToValidate := r.Header.Get(authZTokenHeaderName)
+//func (*DefaultACLsImpl) ValidateRequest(cluster cluster.Cluster, eventType states.EventEnum, w http.ResponseWriter, r *http.Request, reqBody []byte, containerConfig dockerclient.ContainerConfig) (states.ApprovalEnum, *utils.ValidationOutPutDTO) {
+func (*DefaultACLsImpl) ValidateRequest(cluster cluster.Cluster, eventType states.EventEnum, r *http.Request, containerConfig dockerclient.ContainerConfig) (states.ApprovalEnum, *utils.ValidationOutPutDTO) {
+	tenantIdToValidate := r.Header.Get(headers.AuthZTenantIdHeaderName)
+	log.Debug("**ValidateRequest***")
 
-	if tokenToValidate == "" {
-		return notApproved, ""
+	if tenantIdToValidate == "" {
+		return states.NotApproved, &utils.ValidationOutPutDTO{ErrorMessage: "Not Authorized!"}
 	}
 	//TODO - Duplication revise
 	switch eventType {
-	case containerCreate:
-		return approved, ""
-	case containersList:
-		return conditionFilter, ""
-	case unauthorized:
-		return notApproved, ""
+	case states.ContainerCreate:
+		valid, dto := utils.CheckLinksOwnerShip(cluster, tenantIdToValidate, containerConfig)
+		log.Debug(valid)
+		log.Debug(dto)
+		log.Debug("-----------------")
+		return states.Approved, dto
+	case states.ContainersList:
+		return states.ConditionFilter, nil
+	case states.Unauthorized:
+		return states.NotApproved, &utils.ValidationOutPutDTO{ErrorMessage: "Not Authorized!"}
 	default:
 		//CONTAINER_INSPECT / CONTAINER_OTHERS / STREAM_OR_HIJACK / PASS_AS_IS
-		isOwner, id := checkOwnerShip(cluster, tokenToValidate, r)
+		isOwner, dto := utils.CheckOwnerShip(cluster, tenantIdToValidate, r)
 		if isOwner {
-			return approved, id
+			return states.Approved, dto
 		}
 	}
-	return notApproved, ""
+	return states.NotApproved, &utils.ValidationOutPutDTO{ErrorMessage: "Not Authorized!"}
 }
 
 //Init - Any required initialization
 func (*DefaultACLsImpl) Init() error {
 	return nil
 }
+	

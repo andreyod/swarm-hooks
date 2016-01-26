@@ -123,6 +123,10 @@
 			"Rev": "39c7c06298b480560202bec00c2c77e974e88792"
 		},
 		{
+			"ImportPath": "github.com/jeffail/gabs",
+			"Rev": "b69c9e648a2529c8d7b927ba7f87bc7fe0b3b0ea"
+		},
+		{
 			"ImportPath": "github.com/mesos/mesos-go/auth",
 			"Comment": "v0.0.2-27-g657252e",
 			"Rev": "657252ec6fc27975cd86da9f708acd6f4bb1f9ac"

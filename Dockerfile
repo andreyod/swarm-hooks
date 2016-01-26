@@ -14,3 +14,4 @@ VOLUME $HOME/.swarm
 
 ENTRYPOINT ["swarm"]
 CMD ["--help"]
+
