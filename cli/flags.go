@@ -116,6 +116,12 @@ var (
 		Value: strategy.List()[0],
 	}
 
+	flMultiTenant = cli.BoolFlag{
+		Name:   "multiTenant",
+		Usage:  "multiTenant mode",
+		EnvVar: "multiTenant",
+	}
+
 	// hack for go vet
 	flFilterValue = cli.StringSlice(filter.List())
 	// DefaultFilterNumber is exported

@@ -34,17 +34,19 @@ func (d *dispatcher) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // Server is a Docker API server.
 type Server struct {
-	hosts      []string
-	tlsConfig  *tls.Config
-	dispatcher *dispatcher
+	hosts       []string
+	tlsConfig   *tls.Config
+	dispatcher  *dispatcher
+	multiTenant bool
 }
 
 // NewServer creates an api.Server.
-func NewServer(hosts []string, tlsConfig *tls.Config) *Server {
+func NewServer(hosts []string, tlsConfig *tls.Config, multiTenant bool) *Server {
 	return &Server{
-		hosts:      hosts,
-		tlsConfig:  tlsConfig,
-		dispatcher: &dispatcher{},
+		hosts:       hosts,
+		tlsConfig:   tlsConfig,
+		dispatcher:  &dispatcher{},
+		multiTenant: multiTenant,
 	}
 }
 
