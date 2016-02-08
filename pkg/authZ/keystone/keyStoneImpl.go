@@ -85,9 +85,13 @@ func (this *KeyStoneAPI) ValidateRequest(cluster cluster.Cluster, eventType stat
 	tenantIdToValidate := strings.TrimSpace(r.Header.Get(headers.AuthZTenantIdHeaderName))
 
 	log.Debugf("Going to validate token:  %v, for tenant Id: %v, ", tokenToValidate, tenantIdToValidate)
-	valid := queryKeystone(tenantIdToValidate, tokenToValidate)
+//	valid := queryKeystone(tenantIdToValidate, tokenToValidate)
 
-	if !valid {
+//	if !valid {
+//		return states.NotApproved, &utils.ValidationOutPutDTO{ErrorMessage: "Not Authorized!"}
+//	}
+	
+	if os.Getenv("SWARM_MULTI_TENANT") == "KEYSTONE_AUTH" && !(queryKeystone(tenantIdToValidate, tokenToValidate)) {
 		return states.NotApproved, &utils.ValidationOutPutDTO{ErrorMessage: "Not Authorized!"}
 	}
 
