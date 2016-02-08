@@ -10,6 +10,7 @@ import (
 	"github.com/docker/swarm/cluster"
 	"github.com/docker/swarm/pkg/authZ"
 	"github.com/gorilla/mux"
+	"os"
 )
 
 // Primary router context, used by handlers.
@@ -115,7 +116,7 @@ func profilerSetup(mainRouter *mux.Router, path string) {
 }
 
 // NewPrimary creates a new API router.
-func NewPrimary(cluster cluster.Cluster, tlsConfig *tls.Config, status StatusHandler, debug, enableCors bool, multiTenant bool) *mux.Router {
+func NewPrimary(cluster cluster.Cluster, tlsConfig *tls.Config, status StatusHandler, debug, enableCors bool) *mux.Router {
 	// Register the API events handler in the cluster.
 	eventsHandler := newEventsHandler()
 	cluster.RegisterEventHandler(eventsHandler)
@@ -128,7 +129,7 @@ func NewPrimary(cluster cluster.Cluster, tlsConfig *tls.Config, status StatusHan
 	}
 
 	r := mux.NewRouter()
-	setupPrimaryRouter(r, context, enableCors, multiTenant)
+	setupPrimaryRouter(r, context, enableCors)
 
 	if debug {
 		profilerSetup(r, "/debug/")
@@ -137,7 +138,7 @@ func NewPrimary(cluster cluster.Cluster, tlsConfig *tls.Config, status StatusHan
 	return r
 }
 
-func setupPrimaryRouter(r *mux.Router, context *context, enableCors bool, multiTenant bool) {
+func setupPrimaryRouter(r *mux.Router, context *context, enableCors bool) {
 	for method, mappings := range routes {
 		for route, fct := range mappings {
 			log.WithFields(log.Fields{"method": method, "route": route}).Debug("Registering HTTP route")
@@ -153,7 +154,8 @@ func setupPrimaryRouter(r *mux.Router, context *context, enableCors bool, multiT
 				localFct(context, w, r)
 			}
 			localMethod := method
-			if multiTenant {
+			
+			if (os.Getenv("SWARM_MULTI_TENANT") != "NATIVE_SWARM") {
 				hooks := new(authZ.Hooks)
 				hooks.Init()
 				r.Path("/v{version:[0-9.]+}" + localRoute).Methods(localMethod).Handler(hooks.PrePostAuthWrapper(context.cluster, http.HandlerFunc(wrap)))
@@ -175,7 +177,7 @@ func setupPrimaryRouter(r *mux.Router, context *context, enableCors bool, multiT
 					}
 					localFct(context, w, r)
 				}
-				if multiTenant {
+			    if (os.Getenv("SWARM_MULTI_TENANT") != "NATIVE_SWARM") {	
 					hooks := new(authZ.Hooks)
 					hooks.Init()
 					r.Path("/v{version:[0-9.]+}" + localRoute).Methods(optionsMethod).Handler(hooks.PrePostAuthWrapper(context.cluster, http.HandlerFunc(wrap)))
