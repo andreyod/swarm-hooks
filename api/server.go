@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	log "github.com/Sirupsen/logrus"
+	"github.com/docker/docker/pkg/authorization"
 )
 
 // DefaultDockerPort is the default port to listen on for incoming connections.
@@ -34,9 +35,26 @@ func (d *dispatcher) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // Server is a Docker API server.
 type Server struct {
-	hosts      []string
-	tlsConfig  *tls.Config
-	dispatcher *dispatcher
+	cfg          *Config
+	hosts        []string
+	tlsConfig    *tls.Config
+	dispatcher   *dispatcher
+	authZPlugins []authorization.Plugin
+}
+
+// versionMatcher defines a variable matcher to be parsed by the router
+// when a request is about to be served.
+const versionMatcher = "/v{version:[0-9.]+}"
+
+// Config provides the configuration for the API server
+type Config struct {
+	Logging                  bool
+	EnableCors               bool
+	CorsHeaders              string
+	AuthorizationPluginNames []string
+	Version                  string
+	SocketGroup              string
+	TLSConfig                *tls.Config
 }
 
 // NewServer creates an api.Server.

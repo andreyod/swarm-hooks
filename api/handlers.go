@@ -29,7 +29,7 @@ import (
 const APIVERSION = "1.22"
 
 // GET /info
-func getInfo(c *context, w http.ResponseWriter, r *http.Request) {
+func getInfo(c *routerContext, w http.ResponseWriter, r *http.Request) {
 	info := apitypes.Info{
 		Images:            len(c.cluster.Images().Filter(cluster.ImageFilterOptions{})),
 		NEventsListener:   c.eventsHandler.Size(),
@@ -95,7 +95,7 @@ func getInfo(c *context, w http.ResponseWriter, r *http.Request) {
 }
 
 // GET /version
-func getVersion(c *context, w http.ResponseWriter, r *http.Request) {
+func getVersion(c *routerContext, w http.ResponseWriter, r *http.Request) {
 	version := apitypes.Version{
 		Version:      "swarm/" + version.VERSION,
 		APIVersion:   APIVERSION,
@@ -116,7 +116,7 @@ func getVersion(c *context, w http.ResponseWriter, r *http.Request) {
 }
 
 // GET /images/get
-func getImages(c *context, w http.ResponseWriter, r *http.Request) {
+func getImages(c *routerContext, w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		httpError(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -155,7 +155,7 @@ func getImages(c *context, w http.ResponseWriter, r *http.Request) {
 }
 
 // GET /images/json
-func getImagesJSON(c *context, w http.ResponseWriter, r *http.Request) {
+func getImagesJSON(c *routerContext, w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		httpError(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -234,7 +234,7 @@ func getImagesJSON(c *context, w http.ResponseWriter, r *http.Request) {
 }
 
 // GET /networks
-func getNetworks(c *context, w http.ResponseWriter, r *http.Request) {
+func getNetworks(c *routerContext, w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		httpError(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -268,7 +268,7 @@ func getNetworks(c *context, w http.ResponseWriter, r *http.Request) {
 }
 
 // GET /networks/{networkid:.*}
-func getNetwork(c *context, w http.ResponseWriter, r *http.Request) {
+func getNetwork(c *routerContext, w http.ResponseWriter, r *http.Request) {
 	var id = mux.Vars(r)["networkid"]
 	if network := c.cluster.Networks().Uniq().Get(id); network != nil {
 		w.Header().Set("Content-Type", "application/json")
@@ -279,7 +279,7 @@ func getNetwork(c *context, w http.ResponseWriter, r *http.Request) {
 }
 
 // GET /volumes/{volumename:.*}
-func getVolume(c *context, w http.ResponseWriter, r *http.Request) {
+func getVolume(c *routerContext, w http.ResponseWriter, r *http.Request) {
 	var name = mux.Vars(r)["volumename"]
 	if volume := c.cluster.Volumes().Get(name); volume != nil {
 		w.Header().Set("Content-Type", "application/json")
@@ -290,7 +290,7 @@ func getVolume(c *context, w http.ResponseWriter, r *http.Request) {
 }
 
 // GET /volumes
-func getVolumes(c *context, w http.ResponseWriter, r *http.Request) {
+func getVolumes(c *routerContext, w http.ResponseWriter, r *http.Request) {
 	volumes := struct{ Volumes []*dockerclient.Volume }{}
 
 	for _, volume := range c.cluster.Volumes() {
@@ -307,7 +307,7 @@ func getVolumes(c *context, w http.ResponseWriter, r *http.Request) {
 
 // GET /containers/ps
 // GET /containers/json
-func getContainersJSON(c *context, w http.ResponseWriter, r *http.Request) {
+func getContainersJSON(c *routerContext, w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		httpError(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -449,7 +449,7 @@ func getContainersJSON(c *context, w http.ResponseWriter, r *http.Request) {
 }
 
 // GET /containers/{name:.*}/json
-func getContainerJSON(c *context, w http.ResponseWriter, r *http.Request) {
+func getContainerJSON(c *routerContext, w http.ResponseWriter, r *http.Request) {
 	name := mux.Vars(r)["name"]
 	container := c.cluster.Container(name)
 	if container == nil {
@@ -498,7 +498,7 @@ func getContainerJSON(c *context, w http.ResponseWriter, r *http.Request) {
 }
 
 // POST /containers/create
-func postContainersCreate(c *context, w http.ResponseWriter, r *http.Request) {
+func postContainersCreate(c *routerContext, w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	var (
 		config = dockerclient.ContainerConfig{
@@ -543,7 +543,7 @@ func postContainersCreate(c *context, w http.ResponseWriter, r *http.Request) {
 }
 
 // DELETE /containers/{name:.*}
-func deleteContainers(c *context, w http.ResponseWriter, r *http.Request) {
+func deleteContainers(c *routerContext, w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		httpError(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -565,7 +565,7 @@ func deleteContainers(c *context, w http.ResponseWriter, r *http.Request) {
 }
 
 // POST /networks/create
-func postNetworksCreate(c *context, w http.ResponseWriter, r *http.Request) {
+func postNetworksCreate(c *routerContext, w http.ResponseWriter, r *http.Request) {
 	var request dockerclient.NetworkCreate
 
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
@@ -588,7 +588,7 @@ func postNetworksCreate(c *context, w http.ResponseWriter, r *http.Request) {
 }
 
 // POST /volumes/create
-func postVolumesCreate(c *context, w http.ResponseWriter, r *http.Request) {
+func postVolumesCreate(c *routerContext, w http.ResponseWriter, r *http.Request) {
 	var request dockerclient.VolumeCreateRequest
 
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
@@ -607,7 +607,7 @@ func postVolumesCreate(c *context, w http.ResponseWriter, r *http.Request) {
 }
 
 // POST  /images/create
-func postImagesCreate(c *context, w http.ResponseWriter, r *http.Request) {
+func postImagesCreate(c *routerContext, w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		httpError(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -677,7 +677,7 @@ func postImagesCreate(c *context, w http.ResponseWriter, r *http.Request) {
 }
 
 // POST /images/load
-func postImagesLoad(c *context, w http.ResponseWriter, r *http.Request) {
+func postImagesLoad(c *routerContext, w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 
@@ -707,7 +707,7 @@ func postImagesLoad(c *context, w http.ResponseWriter, r *http.Request) {
 }
 
 // GET /events
-func getEvents(c *context, w http.ResponseWriter, r *http.Request) {
+func getEvents(c *routerContext, w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		httpError(w, err.Error(), 400)
 		return
@@ -735,7 +735,7 @@ func getEvents(c *context, w http.ResponseWriter, r *http.Request) {
 }
 
 // POST /containers/{name:.*}/start
-func postContainersStart(c *context, w http.ResponseWriter, r *http.Request) {
+func postContainersStart(c *routerContext, w http.ResponseWriter, r *http.Request) {
 	name := mux.Vars(r)["name"]
 	container := c.cluster.Container(name)
 	if container == nil {
@@ -751,7 +751,7 @@ func postContainersStart(c *context, w http.ResponseWriter, r *http.Request) {
 }
 
 // POST /exec/{execid:.*}/start
-func postExecStart(c *context, w http.ResponseWriter, r *http.Request) {
+func postExecStart(c *routerContext, w http.ResponseWriter, r *http.Request) {
 	if r.Header.Get("Connection") == "" {
 		proxyContainer(c, w, r)
 	}
@@ -759,7 +759,7 @@ func postExecStart(c *context, w http.ResponseWriter, r *http.Request) {
 }
 
 // POST /containers/{name:.*}/exec
-func postContainersExec(c *context, w http.ResponseWriter, r *http.Request) {
+func postContainersExec(c *routerContext, w http.ResponseWriter, r *http.Request) {
 	name := mux.Vars(r)["name"]
 	container := c.cluster.Container(name)
 	if container == nil {
@@ -813,7 +813,7 @@ func postContainersExec(c *context, w http.ResponseWriter, r *http.Request) {
 }
 
 // DELETE /images/{name:.*}
-func deleteImages(c *context, w http.ResponseWriter, r *http.Request) {
+func deleteImages(c *routerContext, w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		httpError(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -836,7 +836,7 @@ func deleteImages(c *context, w http.ResponseWriter, r *http.Request) {
 }
 
 // DELETE /networks/{networkid:.*}
-func deleteNetworks(c *context, w http.ResponseWriter, r *http.Request) {
+func deleteNetworks(c *routerContext, w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		httpError(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -857,7 +857,7 @@ func deleteNetworks(c *context, w http.ResponseWriter, r *http.Request) {
 }
 
 // DELETE /volumes/{names:.*}
-func deleteVolumes(c *context, w http.ResponseWriter, r *http.Request) {
+func deleteVolumes(c *routerContext, w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		httpError(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -878,12 +878,12 @@ func deleteVolumes(c *context, w http.ResponseWriter, r *http.Request) {
 }
 
 // GET /_ping
-func ping(c *context, w http.ResponseWriter, r *http.Request) {
+func ping(c *routerContext, w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte{'O', 'K'})
 }
 
 // POST /networks/{networkid:.*}/disconnect
-func proxyNetworkDisconnect(c *context, w http.ResponseWriter, r *http.Request) {
+func proxyNetworkDisconnect(c *routerContext, w http.ResponseWriter, r *http.Request) {
 	var networkid = mux.Vars(r)["networkid"]
 	network := c.cluster.Networks().Uniq().Get(networkid)
 	if network == nil {
@@ -939,7 +939,7 @@ func proxyNetworkDisconnect(c *context, w http.ResponseWriter, r *http.Request) 
 }
 
 // POST /networks/{networkid:.*}/connect
-func proxyNetworkConnect(c *context, w http.ResponseWriter, r *http.Request) {
+func proxyNetworkConnect(c *routerContext, w http.ResponseWriter, r *http.Request) {
 	var networkid = mux.Vars(r)["networkid"]
 	network := c.cluster.Networks().Uniq().Get(networkid)
 	if network == nil {
@@ -982,7 +982,7 @@ func proxyNetworkConnect(c *context, w http.ResponseWriter, r *http.Request) {
 }
 
 // Proxy a request to the right node
-func proxyContainer(c *context, w http.ResponseWriter, r *http.Request) {
+func proxyContainer(c *routerContext, w http.ResponseWriter, r *http.Request) {
 	name, container, err := getContainerFromVars(c, mux.Vars(r))
 	if err != nil {
 		if container == nil {
@@ -1005,7 +1005,7 @@ func proxyContainer(c *context, w http.ResponseWriter, r *http.Request) {
 }
 
 // Proxy a request to the right node and force refresh container
-func proxyContainerAndForceRefresh(c *context, w http.ResponseWriter, r *http.Request) {
+func proxyContainerAndForceRefresh(c *routerContext, w http.ResponseWriter, r *http.Request) {
 	name, container, err := getContainerFromVars(c, mux.Vars(r))
 	if err != nil {
 		if container == nil {
@@ -1033,7 +1033,7 @@ func proxyContainerAndForceRefresh(c *context, w http.ResponseWriter, r *http.Re
 }
 
 // Proxy a request to the right node
-func proxyImage(c *context, w http.ResponseWriter, r *http.Request) {
+func proxyImage(c *routerContext, w http.ResponseWriter, r *http.Request) {
 	name := mux.Vars(r)["name"]
 
 	if image := c.cluster.Image(name); image != nil {
@@ -1045,7 +1045,7 @@ func proxyImage(c *context, w http.ResponseWriter, r *http.Request) {
 }
 
 // Proxy get image request to the right node
-func proxyImageGet(c *context, w http.ResponseWriter, r *http.Request) {
+func proxyImageGet(c *routerContext, w http.ResponseWriter, r *http.Request) {
 	name := mux.Vars(r)["name"]
 
 	for _, image := range c.cluster.Images() {
@@ -1060,7 +1060,7 @@ func proxyImageGet(c *context, w http.ResponseWriter, r *http.Request) {
 }
 
 // Proxy push image request to the right node
-func proxyImagePush(c *context, w http.ResponseWriter, r *http.Request) {
+func proxyImagePush(c *routerContext, w http.ResponseWriter, r *http.Request) {
 	name := mux.Vars(r)["name"]
 
 	if err := r.ParseForm(); err != nil {
@@ -1085,7 +1085,7 @@ func proxyImagePush(c *context, w http.ResponseWriter, r *http.Request) {
 }
 
 // POST /images/{name:.*}/tag
-func postTagImage(c *context, w http.ResponseWriter, r *http.Request) {
+func postTagImage(c *routerContext, w http.ResponseWriter, r *http.Request) {
 	name := mux.Vars(r)["name"]
 
 	if err := r.ParseForm(); err != nil {
@@ -1108,7 +1108,7 @@ func postTagImage(c *context, w http.ResponseWriter, r *http.Request) {
 }
 
 // Proxy a request to a random node
-func proxyRandom(c *context, w http.ResponseWriter, r *http.Request) {
+func proxyRandom(c *routerContext, w http.ResponseWriter, r *http.Request) {
 	engine, err := c.cluster.RANDOMENGINE()
 	if err != nil {
 		httpError(w, err.Error(), http.StatusInternalServerError)
@@ -1129,7 +1129,7 @@ func proxyRandom(c *context, w http.ResponseWriter, r *http.Request) {
 }
 
 // POST  /commit
-func postCommit(c *context, w http.ResponseWriter, r *http.Request) {
+func postCommit(c *routerContext, w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		httpError(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -1167,7 +1167,7 @@ func postCommit(c *context, w http.ResponseWriter, r *http.Request) {
 }
 
 // POST /build
-func postBuild(c *context, w http.ResponseWriter, r *http.Request) {
+func postBuild(c *routerContext, w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		httpError(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -1217,7 +1217,7 @@ func postBuild(c *context, w http.ResponseWriter, r *http.Request) {
 }
 
 // POST /containers/{name:.*}/rename
-func postRenameContainer(c *context, w http.ResponseWriter, r *http.Request) {
+func postRenameContainer(c *routerContext, w http.ResponseWriter, r *http.Request) {
 	_, container, err := getContainerFromVars(c, mux.Vars(r))
 	if err != nil {
 		if container == nil {
@@ -1243,7 +1243,7 @@ func postRenameContainer(c *context, w http.ResponseWriter, r *http.Request) {
 }
 
 // Proxy a hijack request to the right node
-func proxyHijack(c *context, w http.ResponseWriter, r *http.Request) {
+func proxyHijack(c *routerContext, w http.ResponseWriter, r *http.Request) {
 	name, container, err := getContainerFromVars(c, mux.Vars(r))
 	if err != nil {
 		if container == nil {
@@ -1265,10 +1265,10 @@ func proxyHijack(c *context, w http.ResponseWriter, r *http.Request) {
 }
 
 // Default handler for methods not supported by clustering.
-func notImplementedHandler(c *context, w http.ResponseWriter, r *http.Request) {
+func notImplementedHandler(c *routerContext, w http.ResponseWriter, r *http.Request) {
 	httpError(w, "Not supported in clustering mode.", http.StatusNotImplemented)
 }
 
-func optionsHandler(c *context, w http.ResponseWriter, r *http.Request) {
+func optionsHandler(c *routerContext, w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }

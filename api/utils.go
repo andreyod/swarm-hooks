@@ -61,7 +61,7 @@ func newClientAndScheme(tlsConfig *tls.Config) (*http.Client, string) {
 	return &http.Client{}, "http"
 }
 
-func getContainerFromVars(c *context, vars map[string]string) (string, *cluster.Container, error) {
+func getContainerFromVars(c *routerContext, vars map[string]string) (string, *cluster.Container, error) {
 	if name, ok := vars["name"]; ok {
 		if container := c.cluster.Container(name); container != nil {
 			if !container.Engine.IsHealthy() {

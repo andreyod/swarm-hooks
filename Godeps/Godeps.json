@@ -39,6 +39,11 @@
 			"Rev": "5215b55f46b2b919f50a1df0eaa5886afe4e3b3d"
 		},
 		{
+			"ImportPath": "github.com/docker/docker/pkg/authorization",
+			"Comment": "v1.4.1-10073-g5627e40",
+			"Rev": "5627e400fe666da8159dd7555853e4ca8fbd5933"
+		},
+		{
 			"ImportPath": "github.com/docker/docker/pkg/discovery",
 			"Comment": "v1.4.1-10073-g5627e40",
 			"Rev": "5627e400fe666da8159dd7555853e4ca8fbd5933"
