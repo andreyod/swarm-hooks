@@ -13,7 +13,7 @@ import (
 	"github.com/docker/swarm/pkg/authZ/states"
 	//	"github.com/docker/swarm/pkg/authZ/keystone"
 	"regexp"
-
+    "github.com/docker/swarm/pkg/quota"
 	"github.com/docker/swarm/pkg/authZ/headers"
 	"github.com/docker/swarm/pkg/authZ/utils"
 	"github.com/gorilla/mux"
@@ -22,6 +22,8 @@ import (
 
 //DefaultImp - Default basic label based implementation of ACLs & tenancy enforcment
 type DefaultImp struct{}
+
+var quotaList = new(quota.Quota)
 
 //Init - Any required initialization
 func (*DefaultImp) Init() error {
@@ -151,6 +153,19 @@ func (*DefaultImp) HandleEvent(eventType states.EventEnum, w http.ResponseWriter
 	switch eventType {
 	case states.ContainerCreate:
 		log.Debug("In create...")
+		
+		log.Debug("------- checking QUOTA ----------")
+		memory := containerConfig.HostConfig.Memory
+		tenant := r.Header.Get(headers.AuthZTenantIdHeaderName)
+		log.Debug(memory)
+		log.Debug(tenant)
+		err := quotaList.ValidateQuota(memory, tenant)
+		if err != nil {
+			log.Error(err)
+			return
+		}
+		log.Debug("------- QUOTA OK ----------")
+		
 		log.Debugf("containerConfig In: %+v\n", containerConfig)
 		containerConfig.Labels[headers.TenancyLabel] = r.Header.Get(headers.AuthZTenantIdHeaderName)
 		containerConfig.HostConfig.VolumesFrom = dto.VolumesFrom
@@ -175,7 +190,21 @@ func (*DefaultImp) HandleEvent(eventType states.EventEnum, w http.ResponseWriter
 		if e1 != nil {
 			log.Error(e1)
 		}
-		next.ServeHTTP(w, newReq)
+//		next.ServeHTTP(w, newReq)
+
+        rec := httptest.NewRecorder()
+		next.ServeHTTP(rec, newReq)
+		// TODO: use container id to maintain containers list in quota. key=tenant value=id+memory
+		id, err := utils.ParseID(rec.Body.Bytes())		
+		log.Debug(id)
+		
+		// copy everything from response recorder
+        // to actual response writer
+        w.WriteHeader(rec.Code)
+        for k, v := range rec.HeaderMap {
+            w.Header()[k] = v
+        }
+        rec.Body.WriteTo(w)
 
 	case states.ContainerInspect:
 		log.Debug("In inspect...")
@@ -243,7 +272,19 @@ func (*DefaultImp) HandleEvent(eventType states.EventEnum, w http.ResponseWriter
 			next.ServeHTTP(w, newReq)
 		} else {
 			mux.Vars(r)["name"] = dto.ContainerID
-			next.ServeHTTP(w, r)
+			//next.ServeHTTP(w, r)
+			rec := httptest.NewRecorder()
+			next.ServeHTTP(rec, r)
+		
+			if strings.Contains(r.Method, "DELETE") {
+			tenantId := r.Header.Get(headers.AuthZTenantIdHeaderName)
+			statusCode := rec.Code
+				if 200 <= statusCode && statusCode < 300 {
+					log.Debugf("containerId: %+v\n",dto.ContainerID)// TODO: use containerId to get memory
+					// free quota
+					quotaList.UpdateQuota(tenantId, true)
+				}
+			}
 		}
 	case states.VolumeCreate:
 		log.Debug("event: VolumeCreate...")
