@@ -23,7 +23,7 @@ import (
 //DefaultImp - Default basic label based implementation of ACLs & tenancy enforcment
 type DefaultImp struct{}
 
-var quotaList = new(quota.Quota)
+//var quotaList = new(quota.Quota)
 
 //Init - Any required initialization
 func (*DefaultImp) Init() error {
@@ -150,21 +150,20 @@ func (*DefaultImp) HandleEvent(eventType states.EventEnum, w http.ResponseWriter
 //func (*DefaultImp) HandleEvent(eventType states.EventEnum, w http.ResponseWriter, r *http.Request, next http.Handler, dto *utils.ValidationOutPutDTO, reqBody []byte, containerConfig dockerclient.ContainerConfig) {
 func (*DefaultImp) HandleEvent(eventType states.EventEnum, w http.ResponseWriter, r *http.Request, next http.Handler, dto *utils.ValidationOutPutDTO, reqBody []byte, containerConfig dockerclient.ContainerConfig, volumeCreateRequest dockerclient.VolumeCreateRequest) {
 	log.Debugf("defaultAuthZImpl.HandleEvent %+v\n", eventType)
+	//quotaList := new(quota.Quota)
+	quota := new(quota.Quota)
 	switch eventType {
 	case states.ContainerCreate:
 		log.Debug("In create...")
 		
-		log.Debug("------- checking QUOTA ----------")
 		memory := containerConfig.HostConfig.Memory
 		tenant := r.Header.Get(headers.AuthZTenantIdHeaderName)
-		log.Debug(memory)
-		log.Debug(tenant)
-		err := quotaList.ValidateQuota(memory, tenant)
+		// validate that quota limit isn't exceeded.
+		err := quota.ValidateQuota(memory, tenant)
 		if err != nil {
 			log.Error(err)
 			return
 		}
-		log.Debug("------- QUOTA OK ----------")
 		
 		log.Debugf("containerConfig In: %+v\n", containerConfig)
 		containerConfig.Labels[headers.TenancyLabel] = r.Header.Get(headers.AuthZTenantIdHeaderName)
@@ -191,15 +190,10 @@ func (*DefaultImp) HandleEvent(eventType states.EventEnum, w http.ResponseWriter
 			log.Error(e1)
 		}
 //		next.ServeHTTP(w, newReq)
-
         rec := httptest.NewRecorder()
-		next.ServeHTTP(rec, newReq)
-		// TODO: use container id to maintain containers list in quota. key=tenant value=id+memory
-		id, err := utils.ParseID(rec.Body.Bytes())		
-		log.Debug(id)
-		
-		// copy everything from response recorder
-        // to actual response writer
+		next.ServeHTTP(rec, newReq)	
+		freeResources(quota, rec.Body.Bytes(), tenant, memory, "", 0)		
+		// copy everything from recorder to writer
         w.WriteHeader(rec.Code)
         for k, v := range rec.HeaderMap {
             w.Header()[k] = v
@@ -275,15 +269,9 @@ func (*DefaultImp) HandleEvent(eventType states.EventEnum, w http.ResponseWriter
 			//next.ServeHTTP(w, r)
 			rec := httptest.NewRecorder()
 			next.ServeHTTP(rec, r)
-		
-			if strings.Contains(r.Method, "DELETE") {
-			tenantId := r.Header.Get(headers.AuthZTenantIdHeaderName)
-			statusCode := rec.Code
-				if 200 <= statusCode && statusCode < 300 {
-					log.Debugf("containerId: %+v\n",dto.ContainerID)// TODO: use containerId to get memory
-					// free quota
-					quotaList.UpdateQuota(tenantId, true)
-				}
+		    // tenant resources update for quota enforcement
+			if strings.Contains(r.Method, "DELETE") { 
+				freeResources(quota, nil, r.Header.Get(headers.AuthZTenantIdHeaderName), 0, dto.ContainerID, rec.Code)
 			}
 		}
 	case states.VolumeCreate:
@@ -412,5 +400,30 @@ func (*DefaultImp) HandleEvent(eventType states.EventEnum, w http.ResponseWriter
 		log.Debug("In UNAUTHORIZED...")
 	default:
 		log.Debug("In default...")
+	}	
+}
+
+
+/*
+freeResources - free resources for tenant quota enforcement.
+*/
+func freeResources(quota *quota.Quota, body []byte, tenant string, memory int64, containerId string, returnCode int) {
+	if (containerId == "") && (body != nil){
+		id, err := utils.ParseID(body)
+		if err != nil {
+			log.Error(err)
+			// free resources
+			quota.UpdateQuota(tenant, true, "", memory)
+			return
+		}
+		log.Info("Add to quota container ID: ", id)
+		quota.AddContainer(memory, id, tenant)
+		return
+	}	
+	if 200 <= returnCode && returnCode < 300 {
+		log.Debugf("containerId: %+v\n", containerId)
+		// free resources
+		quota.UpdateQuota(tenant, true, containerId, 0)
 	}
+			
 }

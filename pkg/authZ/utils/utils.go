@@ -368,6 +368,9 @@ func ParseField(field string, fieldType interface{}, body []byte) (interface{}, 
 	return nil, errors.New(fmt.Sprintf("failed to parse field %s from request body %s", field, string(body)))
 }
 
+/*
+ParseID - parse the body and return Id.
+*/
 func ParseID(body []byte) (string, error) {
 	jsonParsed, err := gabs.ParseJSON(body)
 	if err != nil {
